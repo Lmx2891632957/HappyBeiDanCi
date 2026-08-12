@@ -201,9 +201,10 @@ class DriftWordbookRepository implements WordbookRepository {
         for (final item in list)
           WordExample(
             en: (item as Map<String, dynamic>)['en'] as String,
-            zh: item['zh'] as String,
+            zh: item['zh'] as String?,
             source: item['source'] as String,
             attribution: item['attribution'] as String,
+            url: item['url'] as String?,
           ),
       ];
     } catch (error) {

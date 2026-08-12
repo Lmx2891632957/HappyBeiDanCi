@@ -56,15 +56,23 @@ class WordMeaning {
 class WordExample {
   const WordExample({
     required this.en,
-    required this.zh,
+    this.zh,
     required this.source,
     required this.attribution,
+    this.url,
   });
 
   final String en;
-  final String zh;
+
+  /// 例句中文翻译；M1 管线暂不产出（TECH_DOC §10.2），可空。
+  final String? zh;
   final String source;
+
+  /// 例句作者署名（Tatoeba CC BY 2.0 FR 合规要求，PRD §7.2）。
   final String attribution;
+
+  /// 例句来源页面链接（Tatoeba 句子 ID 对应 URL，可溯源）。
+  final String? url;
 }
 
 /// 高考考频（PRD F1：高/中/低频，学习时高频优先）。
