@@ -276,6 +276,9 @@ stateDiagram-v2
   `UserWordRepository` / `ReviewLogRepository` / `SessionRepository` /
   `StatsRepository` 接口。驱动**不修改状态机与 FSRS 引擎的任何行为**，其语义以
   既有单测为准；UI 通过驱动访问会话，不直接操作状态机。
+  **驱动实例与一次会话一一对应**：状态机进入 Done 后不可再次
+  `SessionStarted`（`_start` 仅允许从 Idle 发起），UI 每场会话（学习/复习）
+  新建一个驱动实例。
 - 事件映射：
   - `startNewSession`（新会话）→ `SessionStarted.fresh`；
     `resumeSession`（恢复快照，快照由调用方先经 `SessionRepository.load`
@@ -301,6 +304,8 @@ stateDiagram-v2
 - 中断/恢复/完成时序：
   - `interrupt`：快照保存失败**向上抛出**（区别于评分写库的"记录日志继续"），
     因为快照是恢复的唯一依据（TD-07），静默丢弃违反 T-05；
+    已处于 Paused（保存失败后重试）时跳过状态机事件、直接重存快照，
+    使中断保存可幂等重试；
   - `finish`：先校验队列为空并触发 `SessionFinished`（完成数据在触发前捕获，
     因状态机进入 Done 后清空 position 等元数据），再删除快照（幂等），最后
     合并写 daily_stats；任一持久化失败向上抛出，驱动保留本次会话的完成数据，
