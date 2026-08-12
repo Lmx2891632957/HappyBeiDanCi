@@ -1,7 +1,7 @@
 # AGENTS.md
 
 > 本文件对在本仓库中工作的所有 AI 智能体与协作者生效。它是仓库的"行为守则"：动手前先读，改动前先对齐，提交前先检查。
-> 当前仓库处于**设计阶段**，仅含文档（PRD.md、TECH_DOC.md），尚无源码；本文档描述的目录结构为目标结构，实现时以此为基准。
+> 当前仓库处于**骨架搭建阶段**：Flutter 工程骨架与基础设施（分层、数据库、i18n、接口定义）已就绪，学习/复习/FSRS 等业务逻辑尚未实现；本文档描述的目录结构为实现基准，实际差异见 TECH_DOC.md §4 结构补充说明。
 
 ---
 
@@ -37,14 +37,14 @@ lib/
   app/                    # 应用装配：主题、路由、国际化、依赖注入
   core/                   # 基础设施：Result、日志、时间工具、常量
   data/
-    local/                # Drift 表定义、DAO、迁移脚本
-    repositories/         # 仓储实现（词书、单词、用户状态、日志、设置、统计）
+    local/                # Drift 表定义（tables/）、DAO、迁移脚本
+    repositories/         # 仓储实现（domain/services 中接口的具体实现）
     sources/              # 词库导入、离线包下载、音频在线源
   domain/
     models/               # 领域模型
-    scheduling/           # FSRS 引擎、队列构建与排序、软上限
+    scheduling/           # FSRS 引擎（fsrs/）、Scheduler 接口、队列构建与排序、软上限
     sessions/             # 学习/复习会话状态机
-    services/             # 每日计划、打卡/统计、倒计时计划、导出
+    services/             # 仓储接口（契约）+ 每日计划、打卡/统计、倒计时计划、导出
   features/
     onboarding/
     home/

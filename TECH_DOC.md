@@ -129,17 +129,17 @@ graph TD
 ```text
 lib/
   main.dart
-  app/                    # 应用装配：主题、路由、国际化、依赖注入
+  app/                    # 应用装配：主题、路由、国际化（l10n/）、依赖注入
   core/                   # 基础设施：Result 类型、日志、时间工具、常量
   data/
-    local/                # Drift 表定义、DAO、迁移脚本
-    repositories/         # 仓储实现（词书、单词、用户状态、日志、设置、统计）
+    local/                # Drift 表定义（tables/）、DAO、迁移脚本
+    repositories/         # 仓储实现（domain/services 中接口的具体实现）
     sources/              # 词库导入、离线包下载、音频在线源
   domain/
     models/               # Wordbook / Word / UserWord / ReviewLog / Settings…
-    scheduling/           # FSRS 引擎封装、队列构建与排序、软上限
+    scheduling/           # FSRS 引擎（fsrs/）、Scheduler 接口、队列构建与排序、软上限
     sessions/             # 学习/复习会话状态机（纯逻辑）
-    services/             # 每日计划、打卡/统计、倒计时计划、导出
+    services/             # 仓储接口（契约）+ 每日计划、打卡/统计、倒计时计划、导出
   features/
     onboarding/           # 首次启动：选词书 → 每日目标 → 熟词跳过
     home/                 # 今日任务页
@@ -155,6 +155,11 @@ test/
   domain/                 # FSRS、会话状态机、队列排序、计划计算的单测
   integration/            # 全流程集成测试
 ```
+
+> 结构补充说明（2026-08-12 骨架落地时确认）：
+> 1. **仓储接口定义在 `domain/services/`**，`data/repositories/` 只放实现，保证 `domain` 不依赖 `data`（AGENTS §3.2 依赖方向）；各仓储接口文件按“一个接口一个文件”组织。
+> 2. **数据库表定义位于 `data/local/tables/`**（一表一文件），`app_database.dart` 负责装配与连接，`migrations.dart` 承载 schema 版本与迁移策略。
+> 3. **国际化**：ARB 与生成物均位于 `lib/app/l10n/`。Flutter 3.44 起 gen-l10n 不再生成 synthetic package，`app_localizations*.dart` 生成物随源码提交（便于离线构建与静态分析），改动 ARB 后需运行 `flutter gen-l10n` 并一并提交。
 
 ---
 
