@@ -1,4 +1,5 @@
 import '../models/user_word.dart';
+import 'fsrs/fsrs_defaults.dart';
 
 /// FSRS-5 调度器契约（TECH_DOC §7.1）。
 ///
@@ -33,6 +34,7 @@ enum Rating {
 class CardState {
   const CardState({
     required this.state,
+    this.step,
     this.stability = 0,
     this.difficulty = 0,
     this.dueDate,
@@ -45,47 +47,88 @@ class CardState {
 
   final WordLearningState state;
 
+  /// 学习/重学步骤下标（对应官方实现 `Card.step`，0 起；Review 状态为 null，
+  /// 新词首次评分时视作 0）。TECH_DOC §7.2。
+  final int? step;
+
   /// 记忆稳定性 S（间隔的数学期望）。
   final double stability;
 
   /// 难度因子 D（0–10）。
   final double difficulty;
+
   final DateTime? dueDate;
+
+  /// 复习次数（Anki 口径：每次评分 +1，TECH_DOC §7.2 注）。
   final int reps;
+
+  /// 遗忘次数（Anki 口径：Review 状态评 Again 时 +1，TECH_DOC §7.2 注）。
   final int lapses;
+
   final DateTime? lastReviewAt;
+
+  /// 距上次复习天数（user_words 镜像字段；调度计算不使用，见 TECH_DOC §7.2 注）。
   final double? elapsedDays;
+
+  /// 上次安排的间隔（天）（user_words 镜像字段；调度计算不使用）。
   final double? scheduledDays;
+
+  /// 距 [lastReviewAt] 的整天数（向下取整，等价官方 `(now - last_review).days`）。
+  ///
+  /// 无上次复习返回 null；[now] 早于上次复习（业务上不允许）按 0 处理。
+  int? elapsedDaysAt(DateTime now) {
+    final last = lastReviewAt;
+    if (last == null) {
+      return null;
+    }
+    if (now.isBefore(last)) {
+      return 0;
+    }
+    return now.difference(last).inDays;
+  }
 }
 
-/// FSRS 评分后的调度结果：下次状态、间隔与新到期时间。
+/// FSRS 评分后的调度结果（对齐官方 `review_card` 返回的调度数据）。
 class SchedulingState {
   const SchedulingState({
-    required this.state,
-    required this.stability,
-    required this.difficulty,
-    required this.dueDate,
+    required this.card,
     required this.intervalDays,
+    required this.retrievability,
   });
 
-  final WordLearningState state;
-  final double stability;
-  final double difficulty;
-  final DateTime dueDate;
+  /// 评分后的完整新卡片状态，可直接持久化到 user_words（TECH_DOC §7.6）。
+  final CardState card;
 
   /// 本次评分安排的间隔（天）。
   final double intervalDays;
+
+  /// 评分时刻的预测记忆保持率 R(t,S)；新词首次评分为 0。
+  /// 写入 review_logs 供导出与 FSRS 参数优化（M3）使用（TECH_DOC §7.5）。
+  final double retrievability;
 }
 
-/// FSRS 参数（TD-05：learning_steps=[10m]，desired retention=0.9）。
+/// FSRS 参数（TD-05：learning_steps=[10m]，desired retention=0.9；TECH_DOC §7.4）。
 class FsrsParameters {
   const FsrsParameters({
     this.desiredRetention = 0.9,
     this.learningStepsMinutes = const [10],
     this.relearningStepsMinutes = const [10],
+    this.weights = kFsrs5DefaultWeights,
+    this.maximumIntervalDays = 36500,
+    this.enableFuzzing = false,
   });
 
   final double desiredRetention;
   final List<int> learningStepsMinutes;
   final List<int> relearningStepsMinutes;
+
+  /// FSRS-5 模型权重 w[0..18]，默认官方参数表（TECH_DOC §7.4）。
+  final List<double> weights;
+
+  /// 复习间隔上限（天），官方默认 36500。
+  final int maximumIntervalDays;
+
+  /// 是否对 Review 间隔施加官方 fuzz 随机微扰。
+  /// 官方默认开启，本项目默认关闭以保证调度确定性与测试可复现（TECH_DOC §7.4）。
+  final bool enableFuzzing;
 }
