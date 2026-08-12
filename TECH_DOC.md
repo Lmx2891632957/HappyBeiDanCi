@@ -1,7 +1,8 @@
 # 背单词软件技术文档（TECH_DOC v1.0）
 
 > 关联文档：[PRD.md](./PRD.md)（v0.3 定稿，决策已确认）
-> 状态：v1.1；技术决策已全部确认（2026-08-12），可进入开发
+> 状态：v1.2；技术决策已全部确认（2026-08-12），可进入开发
+> v1.2 变更：M1 Onboarding 最小版落地（首启判定、路由、词书选择口径与熟词跳过取舍，见 §4/§5.1）
 > 读者：Android/跨平台开发工程师、测试、内容运营、后续接手的维护者
 
 ---
@@ -163,18 +164,33 @@ test/
 
 > 结构补充说明（2026-08-12 TD-07 每日核心循环 UI 收口时新增）：
 > 4. **页面路由与装配**：`lib/app/router.dart` 注册 home/learn/review/results 四路由；
->    `lib/app/providers.dart` 提供数据库、各仓储、FSRS 调度器、每日计划计算器与
->    `SessionDriver` 的 Riverpod provider（驱动为 `autoDispose`，一场会话一实例，
->    进入 Done 后不可复用，TECH_DOC §5.4）。UI 不直接读写数据库（AGENTS §3.2）。
+>    v1.2 起增补 onboarding/splash 两路由（首启流程，§5.1）；
+>    `lib/app/providers.dart` 提供数据库、各仓储、FSRS 调度器、每日计划计算器、
+>    `SessionDriver` 与首启门卫 `onboardingGateProvider` 的 Riverpod provider
+>    （驱动为 `autoDispose`，一场会话一实例，进入 Done 后不可复用，TECH_DOC §5.4）。
+>    UI 不直接读写数据库（AGENTS §3.2）。
 > 5. **学习/复习共用会话组件**：共用会话流程（`SessionFlow`，含取卡/评分/中断/完成
 >    编排）与卡片/三键组件位于 `features/learn/`（`session_flow.dart`、
 >    `widgets/session_card.dart`、`widgets/rating_buttons.dart`），复习页复用，
 >    避免重复实现；学习与复习仅以 `SessionType` 与初始队列区分。待功能稳定后
 >    可抽 `features/session/` 共享层再迁移。
-> 6. **Onboarding 取舍（TD-07 阶段）**：暂以“直通今日任务页”替代——应用启动即进入
->    今日任务页，使用默认词书（`getWordbooks` 排序后第一个）与默认设置
->    （每日目标 20、软上限 300，TECH_DOC §18）即可开用；Onboarding
->    （选词书 → 设每日目标 → 熟词跳过）页留待 M1 后续迭代，不在本步宣称已完整实现。
+> 6. **Onboarding（M1 最小版，2026-08-12 落地）**：首启流程为
+>    「选词书 → 设每日目标 → 开始」单页（`features/onboarding/onboarding_page.dart`）；
+>    启动经 `features/onboarding/splash_page.dart` 首帧判定
+>    （`onboardingGateProvider`，§5.1）：`settings.onboarding_done=false`
+>    （缺失按默认回填）→ 进入 `/onboarding`；`true` → 直达 `/`（今日任务页）。
+>    每日目标与首启标记随 `SettingsRepository.save` 同事务落库（§8.1 settings），
+>    中断/重复进入不会造成重复初始化。
+> 7. **首启取舍（2026-08-12 本步明确）**：
+>    - **熟词跳过未实现**：Onboarding 不含“快速筛选已掌握词”（PRD F1/M1），
+>      `wordbook_items.is_skipped` 的读写留待 M1 后续迭代，不宣称已完整实现。
+>    - **词书选择口径**：Onboarding 展示 `getWordbooks()` 并默认选中第一个；
+>      M1 单词书场景下与今日页“默认第一个”等价（§5.1），暂不新增
+>      `active_wordbook_id` 设置键；多词书选择持久化与
+>      `UserWordRepository.getDueWords` 按词书过滤同属后续迭代。
+>    - **TD-06 运行时乱序初始化未触发**：测试 fixture 与词库包预置 `shuffled`，
+>      Onboarding 不生成运行时乱序；`seed = hash(wordbook_id, 设备安装时间)`
+>      的运行时初始化实现留待内容管线交付后按 §8.3 落地，表结构不变。
 
 ---
 
@@ -183,9 +199,18 @@ test/
 ### 5.1 启动与初始化
 
 1. 打开 App → 初始化数据库（WAL、迁移）→ 读取设置与词书状态。
-2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 熟词跳过 → 开始）；再次启动直达今日任务页。
-   > TD-07 阶段取舍：Onboarding 暂以“直通今日任务页”实现（默认词书 + 默认设置即可
-   > 开用，见 §4 补充说明 6），Onboarding 页待 M1 后续迭代。
+2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 开始；熟词跳过未实现，
+   见 §4 补充说明 7）；再次启动直达今日任务页。
+   - **首启判定**：启动先经 `/splash` 首帧渲染，`onboardingGateProvider`
+     读取 `settings.onboarding_done`（缺失按默认 `false` 回填，§18）；
+     `false` → 进入 `/onboarding`，`true` → 直达 `/`。设置读取为异步，
+     splash 等待期间不渲染今日页，避免首帧闪屏与重复初始化（§12）。
+   - **完成落库**：Onboarding「开始」以 `SettingsRepository.save` 一次事务写入
+     每日目标与 `onboarding_done=true`（原子、幂等），随后 `context.go('/')`
+     直达今日任务页；再次启动不再进入 Onboarding。
+   - **每日目标**：选项 10/20/30/50，默认 20（PRD F2 / §18），与
+     `AppConstants.defaultDailyNewWords` 一致；词书选择默认选中第一个
+     （多词书完整支持见 §4 补充说明 7）。
 3. 今日任务页计算（TD-07 收口时明确的数据流，见 §6.1）：
    - 待学新词 = min(每日目标, 词书剩余新词，按"高频→中频→低频"优先）；
    - 待复习 = 所有 `due_date <= 今日结束` 的词，按逾期严重度排序，截取软上限（默认 300）。
@@ -592,7 +617,7 @@ CREATE TABLE session_items (
 > 快照持久化行为（保存/删除事务语义、损坏数据处理口径、时间戳语义）见
 > §5.4"快照持久化"小节。
 
--- 设置（每日目标、软上限、发音、语言、提醒、题型开关、考试日期）
+-- 设置（每日目标、软上限、发音、语言、提醒、题型开关、考试日期、首启标记）
 CREATE TABLE settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -791,9 +816,11 @@ flowchart LR
 
 > TD-07 阶段实现口径：全流程与中断恢复的自动化验证以“驱动 + 仓储级集成测试”
 > （真实 `AppDatabase.forTesting` + `NativeDatabase` 临时文件，见
-> `test/integration/`）与页面 Widget 测试覆盖；Onboarding 直通（§4 补充说明 6），
-> 全流程测试从今日任务页入口开始。UI 级点击链路（今日页 → 会话页 → 完成页）
-> 由 Widget 测试补充。
+> `test/integration/`）与页面 Widget 测试覆盖；Onboarding 首启
+> （首启 → 设置落库 → 直达今日页；再启直达）由 Widget 测试补充
+> （`test/widget/onboarding_widget_test.dart`，v1.2 起），
+> 学习/复习全流程测试从今日任务页入口开始。UI 级点击链路
+> （今日页 → 会话页 → 完成页）由 Widget 测试补充。
 
 ### 14.3 CI 与发布
 
@@ -861,3 +888,4 @@ flowchart LR
 | 离线包预估 | 50–100 MB / 3500 词 | PRD F5 |
 | 例句筛选 | 句长 ≤ 18 词、高中词汇范围 | PRD §7.2 |
 | 时区 | Asia/Shanghai（可设置） | 调度日边界 |
+| 首次启动引导（onboarding_done） | false（完成 Onboarding 后置 true） | 首启路由判定（§5.1），键名 `onboarding_done` |
