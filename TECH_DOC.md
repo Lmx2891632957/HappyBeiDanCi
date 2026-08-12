@@ -181,7 +181,7 @@ test/
 会话内规则：
 
 - **不认识（Again）**：本次会话内立即回到队尾，**至少再出现一次**；若再次答错最多再重排一次（每词每会话最多 2 次重排，防止无限循环）；会话结束后的下次复习间隔由 FSRS 学习步骤决定（10 分钟）。
-- **模糊（Hard）**：进入复习队列，由 FSRS 计算首次复习间隔（通常 1 天）。
+- **模糊（Hard）**：按官方 FSRS-5 学习步骤语义停留在 Learning，下次间隔 = 首个学习步骤 × 1.5（TD-05 下为 15 分钟），不直接毕业（毕业仅由 Good/Easy 触发，见 7.3 注）。
 - **认识（Good）**：推迟首次复习，由 FSRS 计算（通常 3–7 天）。
 - 每张卡作答后立即写 `user_words` 与 `review_logs`；写库失败不影响队列推进（先内存队列、批量落库）。
 
@@ -274,37 +274,55 @@ suggestedNew    = ceil(剩余新词数 / daysLeft)
 | 字段 | 含义 |
 |---|---|
 | `state` | New / Learning / Review / Relearning |
+| `step` | 学习/重学步骤下标（0 起；Learning/Relearning 时非空，Review 时为 null），对应官方实现 `Card.step` |
 | `stability (S)` | 记忆稳定性（间隔的数学期望） |
 | `difficulty (D)` | 词条难度因子（0–10） |
 | `due_date` | 下次到期时间 |
 | `reps` | 复习次数 |
 | `lapses` | 遗忘次数 |
 | `last_review_at` | 上次复习时间 |
-| `elapsed_days` | 距上次复习天数 |
-| `scheduled_days` | 上次安排的间隔 |
+| `elapsed_days` | 距上次复习天数（user_words 镜像字段；评分时计算，首次评分为空） |
+| `scheduled_days` | 上次安排的间隔（user_words 镜像字段；本次评分后更新） |
+
+> 说明：`reps`/`lapses` 计数器官方 py-fsrs 不维护，属本项目按 Anki 口径的本地扩展：每次评分 `reps + 1`；Review 状态评 Again（进入遗忘）时 `lapses + 1`。调度计算以 `last_review_at` 推导 elapsed_days，不读取镜像字段，保持"算法层不读数据库"。
 
 ### 7.3 评分映射
 
 | UI 操作 | 内部评分 | 新词（Learning） | 复习词（Review） |
 |---|---|---|---|
 | 不认识 | Again (1) | 留在 Learning，due = +10 分钟 | 进入 Relearning，due = +10 分钟 |
-| 模糊 | Hard (2) | 毕业为 Review，间隔由 FSRS 给出（约 1 天） | 正常更新 S/D，间隔缩短 |
-| 认识 | Good (3) | 毕业为 Review，间隔由 FSRS 给出（约 3–7 天） | 正常推进间隔 |
-| 认识（长按/高级） | Easy (4) | 跳过学习步骤直接长间隔 | 大幅推进间隔 |
+| 模糊 | Hard (2) | 留在 Learning，due = +15 分钟（单步 [10m] 的 1.5 倍，官方学习步骤语义） | 正常更新 S/D，间隔缩短 |
+| 认识 | Good (3) | 毕业为 Review，间隔由 FSRS 给出（约 3 天） | 正常推进间隔 |
+| 认识（长按/高级） | Easy (4) | 跳过学习步骤直接毕业，间隔约 16 天 | 大幅推进间隔 |
 
 学习步骤配置：`learning_steps = [10m]`，`relearning_steps = [10m]`；目标记忆保持率（desired retention）默认 **0.9**，可在算法参数配置中调整。
+
+> 注（2026-08-12 FSRS 移植时校准）：毕业（Learning/Relearning → Review）仅由 Good（最后一步）或 Easy 触发；Again 重置步骤、Hard 保持步骤不变，二者均停留在 Learning/Relearning，不进入复习队列。这与 PRD F3"模糊和不认识进入复习队列"的产品表述不一致，实现以官方 FSRS-5 语义为准，PRD 表述待产品确认（差异详见汇报）。
 
 ### 7.4 调度规则
 
 - 每次评分后调用 FSRS 状态转移：更新 S、D、due_date、reps、lapses，写 `review_logs`（含当时的 S/D/间隔，供导出与调参）。
 - 复习日期由算法输出；今日队列由"逾期严重度"排序（第 6.2 节）。
 - 参数首次使用官方默认值（FSRS-5 默认参数表），上线后可用本地 `review_logs` 做参数优化（重跑训练脚本，M3 可选）。
+- 移植基准：官方 Python 参考实现 **py-fsrs v5.1.3**（FSRS-5 最终版本，19 参数模型）。fsrs4anki v6 的 21 参数扩展（w[19]/w[20] 与 toFixed(2) 取整）本次未采用，差异详见汇报。
+- **fuzz 默认关闭**（`enableFuzzing = false`）：官方默认开启随机微扰，本项目为调度确定性与测试可复现性默认关闭；引擎保留官方 fuzz 区间算法，后续可按需开启。
+- 间隔计算使用 Python `round()`（银行家舍入）语义；复习间隔取整日，学习/重学步骤按分钟计。
 
 ### 7.5 正确性保障
 
-1. 移植后跑通官方测试用例的数值断言（精度 1e-6 内一致）。
+1. 移植后跑通官方 golden 用例：官方 py-fsrs v5.1.3 测试序列的 S/D/间隔/retrievability 断言，参考值由官方实现全精度生成，断言容差 1e-6。
 2. 时间全部以 `DateTime` 存储 epoch 毫秒，调度计算使用"本地日边界"（Asia/Shanghai 时区优先，设置内可改）。
 3. 算法层不读数据库，输入为"词状态 + 评分 + 当前时间"，输出为"新状态 + 日志"，可整层单元测试。
+
+### 7.6 领域接口映射（骨架调整记录，2026-08-12）
+
+| 骨架接口 | 调整 | 原因 |
+|---|---|---|
+| `CardState` | 新增 `step`（int?） | 对应官方 `Card.step`，学习/重学步骤推进是官方状态机的一部分 |
+| `SchedulingState` | 改为承载完整更新后的 `CardState` + `intervalDays` + `retrievability` | 对齐官方 `review_card` 返回的 (Card, ReviewLog) 数据，便于直接持久化 `user_words` |
+| `FsrsParameters` | 新增 `weights`（官方 19 参数默认表）、`maximumIntervalDays`（36500）、`enableFuzzing`（默认 false） | TECH_DOC §7.4 所需参数项 |
+
+引擎实现位置：`domain/scheduling/fsrs/fsrs_engine.dart`（状态转移）、`fsrs_formulas.dart`（纯公式）、`fsrs_defaults.dart`（官方默认参数与常量）。
 
 ---
 
