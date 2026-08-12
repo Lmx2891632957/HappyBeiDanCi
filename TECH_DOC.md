@@ -718,11 +718,13 @@ gaokao-3500-v1.2/
 
 ```mermaid
 flowchart LR
-    A[考纲词表] --> C[词表对齐/去重]
-    B[ECDICT gk 标签] --> C
-    C --> D[释义/音标提取]
-    D --> E[例句筛选 Tatoeba]
-    E --> F[TTS 批量生成美音]
+    A[ECDICT gk 标签] --> C[词表对齐/去重]
+    B[考纲词表(可选输入)] --> C
+    C --> D[释义提取 ECDICT]
+    C --> E2[美音音标 ipa-dict]
+    E2 --> D2[音标兜底 ECDICT]
+    C --> E[例句筛选 Tatoeba]
+    E --> F[TTS 批量生成美音 Edge TTS]
     F --> G[打包: 词库DB + 音频包 + manifest]
     G --> H[人工抽检 每1000词]
     H --> I[发布产物]
@@ -731,17 +733,36 @@ flowchart LR
 ### 10.2 各阶段规则
 
 | 阶段 | 规则 |
-|---|---|
-| 词表对齐 | 以教育部考纲词表为基准；ECDICT `gk` 标签交叉验证；大小写规范化、去重；产出词表 JSON（约 3500 词） |
-| 释义/音标 | 从 ECDICT 取**最常用 1–3 个义项**，标注词性，义项顺序按词频排序 |
-| 例句 | Tatoeba 全库过滤：句长 ≤ 18 词、包含目标词、句子用词不超出高中词汇集（按 BNC/COCA 词频阈值）、优先短句；每词 1–2 句；保留句子 ID 与作者署名信息 |
-| 音频 | Edge TTS 美音批量生成，每词 1 个 mp3（目标码率 48–96 kbps，单词时长约 1–2 秒）；文件命名 `audio_key = 词表序号` 保持稳定 |
+|---|---|---|
+| 词表对齐 | 以 **ECDICT `gk` 标签为基准种子**（2026-08-13 实测 3677 词；教育部考纲词表无官方机器可读版本，脚本支持传入官方词表文件做交集/去重，未传入时以 gk 全集为准）；大小写规范化、去重、自然排序后赋 `seq`（0 起） |
+| 释义 | 从 ECDICT `translation` 取**最常用 1–3 个义项**，标注词性（`pos` 字段或行内词性前缀），义项顺序按行序（ECDICT 已按词频粗排） |
+| 音标（美式） | **优先 ipa-dict en_US**（open-dict-data/ipa-dict，MIT，实测对 gk 词覆盖 99.1%）；缺失词兜底用 ECDICT `phonetic`（英式/混合风格，入库 `phonetic`，不冒充美音）——2026-08-13 与产品方确认的口径，替代"音标从 ECDICT 直接取用"旧表述 |
+| 例句 | Tatoeba **Detailed** 导出（自带作者用户名）过滤：句长 ≤ 18 词、包含目标词（词边界、忽略大小写）、句子用词不超出高中词汇集（内容词须在 gk 集内或 ECDICT `bnc` 排名 ≤ 30000，功能词白名单豁免）、优先短句；每词 1–2 句；入库句子 ID、`source=Tatoeba`、`attribution=作者用户名` |
+| 音频 | Edge TTS 美音批量生成（`en-US-AriaNeural`），每词 1 个 mp3（实测 48 kbps / 24 kHz，符合 TD-08 48–96 kbps）；文件命名 `audio_key = 词表序号`（6 位补零）保持稳定；脚本带限速、指数退避重试与断点续跑 |
+| 考频 | M1 以 ECDICT `frq`（当代语料库词频序）为**考频代理**：`frq ≤ 4000` → high、`frq ≤ 12000` → medium、其余 low（缺失按 medium）；真题语料考频统计（PRD F1 原口径）延后 M2+，属文档化取舍 |
 | 质检 | 每 1000 词人工抽检：释义顺序正确、例句难度不超高中阅读、音频清晰无吞音；不合格词条打回对应阶段 |
 | 打包 | 词库 DB（words/wordbooks/wordbook_items）+ 音频 zip + manifest（版本、SHA-256）；产物上传对象存储/CDN，App 按版本拉取 |
 
 ### 10.3 署名与合规
 
-应用内"关于/数据来源"页固定展示：教育部《高考英语考试大纲》词表、ECDICT（MIT）、Tatoeba（CC BY 2.0 FR，含例句署名）、TTS 引擎来源。满足 PRD §7.2 合规说明。
+应用内"关于/数据来源"页固定展示：教育部《高考英语考试大纲》词表（词表口径见
+§10.2）、ECDICT（MIT）、ipa-dict（MIT，基于 CMUdict）、Tatoeba（CC BY 2.0 FR，
+含例句作者署名与句子链接）、TTS 引擎（Microsoft Edge TTS）。满足 PRD §7.2 合规说明。
+
+### 10.4 数据源调研明细（2026-08-13 实测确认）
+
+| 数据源 | 下载地址 / 格式 | 数据量（实测） | 许可 | 用途 |
+|---|---|---|---|---|
+| ECDICT | `https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv`，13 字段 UTF-8 CSV（word/phonetic/definition/translation/pos/collins/oxford/tag/bnc/frq/exchange/detail/audio） | 65.9 MB；`gk` 标签 3677 词 | MIT（已核对 LICENSE） | 词表种子、释义、词性、兜底音标、考频代理 |
+| Tatoeba | `https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences_detailed.tsv.bz2`，`句子ID \t eng \t 句子 \t 用户名 \t 日期` | 34.8 MB（bz2），203.3 万句（2026-08-13 快照） | CC BY 2.0 FR；**Detailed 导出自带作者用户名，署名随句入库** | 例句筛选 |
+| ipa-dict | `https://raw.githubusercontent.com/open-dict-data/ipa-dict/master/data/en_US.txt`，`词 \t IPA` | 125,927 词条（en_US） | MIT（基于 CMUdict 改造，CMUdict 数据本身 BSD-2-Clause） | 美式 IPA 音标（主源） |
+| Edge TTS | `pip install edge-tts`（实测 v7.2.8） | 单词样例 10.5 KB | 微软在线服务，无 SLA、存在隐式限流（脚本限速+重试） | 美音 TTS 批量生成 |
+
+> 考纲词表：未找到官方机器可读版本（教育部考试大纲为 PDF，需人工抽取）。管线
+> `align_words.py` 支持 `--official` 参数传入纯文本词表（每行一词）做交集对齐；
+> 未提供时以 ECDICT `gk` 全集为词表（与 PRD §7.2"ECDICT gk 为种子"口径一致）。
+> 原始数据与中间产物位于 `tools/content_pipeline/raw/`、`work/`（均已
+> `.gitignore`，不进源码仓库，AGENTS §5.3）；发布产物在 `output/`。
 
 ---
 
