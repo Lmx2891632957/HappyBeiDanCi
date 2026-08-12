@@ -21,7 +21,8 @@ abstract interface class SessionRepository {
   Future<SessionSnapshot?> load(String sessionId);
 
   /// 加载全部未完成快照，供今日任务页"存在未完成会话"提示（TECH_DOC §5.1）。
-  /// 每个快照均按 load 的同一规则校验，任一损坏即整体抛错。
+  /// 按 `updated_at` 降序返回（最近更新的会话优先）；每个快照均按 load 的
+  /// 同一规则校验，任一损坏即整体抛错。
   Future<List<SessionSnapshot>> loadAll();
 
   /// 删除快照：sessions 与 session_items 两表同事务清理（会话进入 Done 后调用）。

@@ -90,7 +90,16 @@ class DriftSessionRepository implements SessionRepository {
 
   @override
   Future<List<SessionSnapshot>> loadAll() async {
-    final sessions = await _db.select(_db.sessions).get();
+    // 最新会话优先（TECH_DOC §5.1：今日页"继续上次未完成的学习"取最近一个）；
+    // updated_at 由每次快照保存刷新（§5.4 时间戳语义）。
+    final sessions = await (_db.select(_db.sessions)
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.updatedAt,
+              mode: OrderingMode.desc,
+            ),
+          ]))
+        .get();
     if (sessions.isEmpty) {
       return const [];
     }
