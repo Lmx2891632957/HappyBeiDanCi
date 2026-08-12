@@ -33,3 +33,39 @@ abstract final class AppConstants {
   /// 每日提醒默认时间（HH:mm，PRD F6）。
   static const String defaultReminderTime = '20:00';
 }
+
+/// settings 键值表的键名常量（TECH_DOC §8.1 settings）。
+///
+/// 键名集中定义在本处（core 基础设施），仓储实现与测试统一引用，
+/// 禁止在业务代码中散落魔法字符串。
+abstract final class AppSettingKeys {
+  AppSettingKeys._();
+
+  /// 每日新词数（整数文本）。
+  static const String dailyNewWords = 'daily_new_words';
+
+  /// 复习软上限（整数文本；'off' 表示关闭）。
+  static const String reviewCap = 'review_cap';
+
+  /// 每日提醒开关（'true'/'false'）。
+  static const String reminderEnabled = 'reminder_enabled';
+
+  /// 提醒时间（HH:mm）。
+  static const String reminderTime = 'reminder_time';
+
+  /// 高考倒计时考试日期（epoch 毫秒文本；空串表示未设置，M3 功能占位）。
+  static const String examDate = 'exam_date';
+
+  /// 调度日边界时区（IANA 名称文本，默认 Asia/Shanghai）。
+  static const String timezone = 'timezone';
+
+  /// 全部键名（用于缺键回填与批量保存）。
+  static const List<String> all = [
+    dailyNewWords,
+    reviewCap,
+    reminderEnabled,
+    reminderTime,
+    examDate,
+    timezone,
+  ];
+}
