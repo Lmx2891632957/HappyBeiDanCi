@@ -204,23 +204,45 @@ test/
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Fetching: 进入会话
-    Fetching --> Showing: 取到下一张卡
-    Showing --> Rating: 用户作答
-    Rating --> Requeue: 答错(Again)且重排次数<2
-    Rating --> Fetching: 答对或已超重排上限
-    Requeue --> Fetching: 追加到队尾
-    Showing --> Paused: 中断/退后台
-    Paused --> Showing: 恢复（读取快照）
-    Fetching --> Done: 队列为空
+    Idle --> Fetching: SessionStarted（新会话/恢复快照）
+    Fetching --> Showing: CardFetched（队列非空）
+    Fetching --> Done: SessionFinished（队列为空）
+    Showing --> Rating: CardRated
+    Rating --> Requeue: RatingCommitted（Again 且 requeue_left > 0）
+    Rating --> Fetching: RatingCommitted（非 Again 或重排超限）
+    Requeue --> Fetching: CardFetched（重排已追加到队尾）
+    Showing --> Paused: SessionInterrupted
+    Rating --> Paused: SessionInterrupted
+    Requeue --> Paused: SessionInterrupted
+    Fetching --> Paused: SessionInterrupted
+    Paused --> Showing: SessionResumed（剩余队列非空）
+    Paused --> Fetching: SessionResumed（剩余队列为空）
     Done --> [*]
 ```
 
-关键实现要求：
+事件推进（实现 `DefaultSessionStateMachine`，纯逻辑，不读写数据库、不执行 FSRS 计算、不生成随机）：
 
-- 会话以 `session_id` 持久化：`sessions` 表存会话类型/进度，`session_items` 存队列与重排计数；每完成一张卡更新一次（事务内）。
-- 中断恢复时按原队列继续，**已答过的卡不重复**（重排卡除外）。
-- 全部完成后删除快照，写 `daily_stats`，进入任务完成页。
+- `SessionStarted`：进入会话；新会话携带 `sessionId + sessionType + initialWordIds`，恢复会话携带 `SessionSnapshot`，据此全量重建队列。
+- `CardFetched`：从 `Requeue` 进入 `Fetching`（仅推进阶段，重排追加已在 `RatingCommitted` 完成）；从 `Fetching` 取下一张卡进入 `Showing`。
+- `CardRated`：用户作答，携带 FSRS `Rating`（Again=1/Hard=2/Good=3/Easy=4）。状态机只记录"是否重排"；FSRS 调度与落库由调用方在事件外完成。
+- `RatingCommitted`：调用方完成评分处理（FSRS + 写库）后触发；`Again 且 requeue_left > 0` → 移除队首、把该词追加到队尾、`requeue_left - 1`、进入 `Requeue`；否则仅移除队首、进入 `Fetching`。**Hard/Good/Easy 一律不重排。**
+- `SessionInterrupted`：可从 Fetching/Showing/Rating/Requeue 任意活动阶段进入 `Paused` 并产出快照。
+- `SessionResumed`：按快照重建队列；剩余队列非空 → `Showing`（队首卡），为空 → `Fetching`（等待 `SessionFinished`）。
+- `SessionFinished`：仅允许在 `Fetching` 且队列为空时触发，进入 `Done` 并清空快照。
+
+重排规则（§5.2/§5.3 口径确认，2026-08-12 实现时明确）：
+
+- 重排判定 = **Again（评分 1）且该词剩余重排次数 > 0**；`requeue_left` 初始为 2（会话内最大重排次数，§18），每次重排减 1，减到 0 后再答错按答对推进（仅移除、不再入队），防止单次会话无限循环。
+- "回到队尾"即追加到剩余队列末尾；每个词在任意时刻至多有一个待展示 occurrence，`session_items` 按 `(session_id, word_id)` 一行一卡成立（§8.1）。
+
+快照与恢复语义（TD-07 口径确认，2026-08-12 实现时明确）：
+
+- `SessionSnapshot.items` 只含**剩余队列**（已答卡不重复，重排卡除外），按 `seq` 升序排列；`seq` 为剩余队列内 0 起连续下标。
+- `SessionSnapshot.position` = **已消费卡数**（本次会话已作答并离开队列的卡数），即 `sessions.position` 的进度语义；恢复时仅作进度恢复，下一张卡恒为剩余队列队首。
+- 中断在 `Showing`：当前卡尚未消费，快照含队首卡，恢复后重新展示同一张卡。
+- 中断在 `Rating`：作答未提交（`RatingCommitted` 未触发），当前卡视为未消费，恢复后重新作答。
+- 中断在 `Requeue`：重排已生效，快照含追加到队尾的重排卡（`requeue_left` 已减一），恢复后先展示队首的下一张卡。
+- 会话进入 `Done` 后 `snapshot` 置空；快照持久化与删除由调用方负责，状态机不写数据库。全部完成后由调用方写 `daily_stats` 并进入任务完成页。
 
 ---
 
@@ -427,13 +449,13 @@ CREATE TABLE sessions (
   session_type TEXT NOT NULL,                -- learning / review
   created_at   INTEGER NOT NULL,
   updated_at   INTEGER NOT NULL,
-  position     INTEGER NOT NULL DEFAULT 0
+  position     INTEGER NOT NULL DEFAULT 0    -- 已消费卡数（进度，§5.4）
 );
 
 CREATE TABLE session_items (
   session_id   TEXT NOT NULL,
   word_id      INTEGER NOT NULL,
-  seq          INTEGER NOT NULL,             -- 当前队列顺序
+  seq          INTEGER NOT NULL,             -- 剩余队列顺序（0 起连续，§5.4）
   requeue_left INTEGER NOT NULL DEFAULT 0,   -- 该词剩余重排次数
   PRIMARY KEY (session_id, word_id)
 );
