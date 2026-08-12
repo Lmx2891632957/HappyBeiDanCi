@@ -66,6 +66,9 @@ abstract final class AppSettingKeys {
   /// TECH_DOC §18，首启路由判定见 §5.1）。
   static const String onboardingDone = 'onboarding_done';
 
+  /// 已安装词库内容版本（TECH_DOC §8.2；空串表示未安装）。
+  static const String wordbookVersion = 'wordbook_version';
+
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,
@@ -75,5 +78,6 @@ abstract final class AppSettingKeys {
     examDate,
     timezone,
     onboardingDone,
+    wordbookVersion,
   ];
 }

@@ -9,6 +9,7 @@ import '../data/repositories/drift_settings_repository.dart';
 import '../data/repositories/drift_stats_repository.dart';
 import '../data/repositories/drift_user_word_repository.dart';
 import '../data/repositories/drift_wordbook_repository.dart';
+import '../data/sources/wordbook_importer.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
 import '../domain/models/wordbook.dart';
@@ -29,6 +30,11 @@ import '../domain/sessions/session_snapshot.dart';
 /// 数据库实例：Provider 惰性求值，应用启动时首页先渲染骨架、
 /// 不等待磁盘 IO（TECH_DOC §12 启动到首卡 < 2s）。
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+
+/// 发布版词库导入器（TECH_DOC §8.2）：校验/备份/整体替换/word_id remap。
+final wordbookImporterProvider = Provider<WordbookImporter>(
+  (ref) => WordbookImporter(ref.watch(databaseProvider)),
+);
 
 /// 各仓储（UI 不直接读写数据库，AGENTS §3.2：一律经本层注入的仓储接口访问）。
 final wordbookRepositoryProvider = Provider<WordbookRepository>(
