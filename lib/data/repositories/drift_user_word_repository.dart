@@ -14,10 +14,7 @@ class DriftUserWordRepository implements UserWordRepository {
   final AppDatabase _db;
 
   @override
-  Future<List<UserWord>> getDueWords({
-    required DateTime todayEnd,
-    int? limit,
-  }) {
+  Future<List<UserWord>> getDueWords({required DateTime todayEnd, int? limit}) {
     // 只按 due_date <= 今日结束过滤，排序与软上限由队列构建器负责（§6.2）；
     // due_date 为空的词不匹配该条件（SQL NULL 语义），符合"空 due_date 不进
     // 到期列表"（§6.2）。按 (due_date, word_id) 稳定排序便于测试与导出。
@@ -41,14 +38,14 @@ class DriftUserWordRepository implements UserWordRepository {
     required int wordbookId,
     required int wordId,
   }) async {
-    final row = await (_db.select(_db.userWords)
-          ..where(
-            (t) =>
-                t.userId.equals(userId) &
-                t.wordbookId.equals(wordbookId) &
-                t.wordId.equals(wordId),
-          ))
-        .getSingleOrNull();
+    final row =
+        await (_db.select(_db.userWords)..where(
+              (t) =>
+                  t.userId.equals(userId) &
+                  t.wordbookId.equals(wordbookId) &
+                  t.wordId.equals(wordId),
+            ))
+            .getSingleOrNull();
     return row == null ? null : _toDomain(row);
   }
 
@@ -82,7 +79,9 @@ class DriftUserWordRepository implements UserWordRepository {
     wordId: row.wordId,
     state: _stateFrom(row.state),
     status: _statusFrom(row.status),
-    dueDate: row.dueDate == null ? null : DateTime.fromMillisecondsSinceEpoch(row.dueDate!),
+    dueDate: row.dueDate == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(row.dueDate!),
     stability: row.stability,
     difficulty: row.difficulty,
     reps: row.reps,

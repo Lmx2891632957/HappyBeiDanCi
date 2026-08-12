@@ -15,24 +15,26 @@ class DriftStatsRepository implements StatsRepository {
 
   @override
   Future<DailyStats?> getByDay(String day) async {
-    final row = await (_db.select(_db.dailyStats)
-          ..where((t) => t.day.equals(day)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.dailyStats,
+    )..where((t) => t.day.equals(day))).getSingleOrNull();
     return row == null ? null : _toDomain(row);
   }
 
   @override
   Future<void> upsert(DailyStats stats) {
     // day 为主键：冲突时覆盖整行计数（调用方已合并，直接替换即正确语义）。
-    return _db.into(_db.dailyStats).insertOnConflictUpdate(
-      DailyStatsCompanion(
-        day: Value(stats.day),
-        newCount: Value(stats.newCount),
-        reviewCount: Value(stats.reviewCount),
-        correctCount: Value(stats.correctCount),
-        completed: Value(stats.completed),
-      ),
-    );
+    return _db
+        .into(_db.dailyStats)
+        .insertOnConflictUpdate(
+          DailyStatsCompanion(
+            day: Value(stats.day),
+            newCount: Value(stats.newCount),
+            reviewCount: Value(stats.reviewCount),
+            correctCount: Value(stats.correctCount),
+            completed: Value(stats.completed),
+          ),
+        );
   }
 
   DailyStats _toDomain(DailyStatRow row) => DailyStats(

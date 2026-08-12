@@ -17,20 +17,22 @@ class DriftReviewLogRepository implements ReviewLogRepository {
 
   @override
   Future<void> add(ReviewLog log) {
-    return _db.into(_db.reviewLogs).insert(
-      ReviewLogsCompanion.insert(
-        userId: Value(log.userId),
-        wordbookId: log.wordbookId,
-        wordId: log.wordId,
-        rating: log.rating.value,
-        reviewedAt: log.reviewedAt.millisecondsSinceEpoch,
-        intervalDays: Value(log.intervalDays),
-        stability: Value(log.stability),
-        difficulty: Value(log.difficulty),
-        sessionId: Value(log.sessionId),
-        sessionType: log.sessionType.storageValue,
-      ),
-    );
+    return _db
+        .into(_db.reviewLogs)
+        .insert(
+          ReviewLogsCompanion.insert(
+            userId: Value(log.userId),
+            wordbookId: log.wordbookId,
+            wordId: log.wordId,
+            rating: log.rating.value,
+            reviewedAt: log.reviewedAt.millisecondsSinceEpoch,
+            intervalDays: Value(log.intervalDays),
+            stability: Value(log.stability),
+            difficulty: Value(log.difficulty),
+            sessionId: Value(log.sessionId),
+            sessionType: log.sessionType.storageValue,
+          ),
+        );
   }
 
   @override
