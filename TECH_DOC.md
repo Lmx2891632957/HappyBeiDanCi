@@ -104,8 +104,9 @@ graph TD
 | 本地数据库 | Drift（基于 SQLite，启用 WAL） | 类型安全、迁移友好；满足 T-04 |
 | 间隔重复算法 | **FSRS-5**（移植自官方 Python 参考实现） | 开源、参数可调、Anki 验证；备选 SM-2（见第 7 章） |
 | 本地通知 | flutter_local_notifications + timezone | 每日提醒；Android 13+ 需 POST_NOTIFICATIONS 权限 |
-| 音频播放 | just_audio（在线流 + 本地文件统一接口） | 支持预加载与缓存；例句发音 M2 复用 |
-| 后台下载 | WorkManager（Android）封装 + 前台服务 | 离线包断点续传、Wi-Fi 策略 |
+| 音频播放 | just_audio 0.10.6（在线流 + 本地文件统一接口） | M1 发音接入（2026-08-13）；支持预加载与缓存；例句发音 M2 复用；Android 依赖 ExoPlayer |
+| 后台下载 | workmanager 0.10.7（Android 封装 + 前台服务） | 离线包断点续传、Wi-Fi 策略；dataSync 前台服务需 gradle 属性 `workmanager.enableDataSyncForegroundService=true`（§11.2）；Android 侧引入 androidx.work 原生依赖 |
+| 解压 | archive 4.0.9（纯 Dart） | 离线包 zip 解压与原子替换（§9.2），无原生依赖，体积影响约 200 KB |
 | i18n | Flutter 官方 l10n（ARB 文件） | 界面中英双语（F7） |
 | 深色模式 | Material 3 主题系统 | 低成本（F7） |
 | CI | GitHub Actions（analyze + test + build APK） | 见第 14 章 |
@@ -680,35 +681,98 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 ### 9.1 播放策略（在线优先 + 离线包）
 
 ```
-播放请求 → 离线包已含该词？ → 是：播本地文件
-                            → 否：播 audio_url（HTTP 流），同时写入内存/磁盘 LRU 缓存
+播放请求 → 发音开关关闭？ → 是：不播（设置页可开启，F7）
+       → 否：离线包 ready 且 audio/<key>.mp3 存在？ → 是：播本地文件
+                            → 否：播 audio_url（HTTP 流），失败静默不阻塞学习
 ```
 
-- 首次使用默认在线播放；离线包在后台下载完成后自动切换本地（F5）。
-- 翻卡前预加载后续 2 张卡的音频，避免播放卡顿。
-- 例句发音（M2）使用同一管线与缓存策略。
+- **M1 实现（2026-08-13 落地）**：`lib/data/sources/audio_playback_service.dart`
+  封装 just_audio（`AudioPlayer` 单例复用）；每次播放前即时解析播放源：
+  先查 `audio_packs.status=ready` 且包内文件存在 → `AudioSource.file` 本地播放；
+  否则用词条 `audio_url` 在线播放。`audio_url` 为空或网络失败时静默忽略，
+  不打断卡片翻面/评分节奏（T-02 核心闭环不依赖网络）。
+- 首次使用默认在线播放；离线包在后台下载完成后自动切换本地（F5），
+  切换由播放时的"离线包 ready"判断天然完成，无需显式事件。
+- **预加载口径**：原"翻卡前预加载后续 2 张卡"为性能优化项，M1 最小版不实现
+  （按需点击播放，首卡 < 2s 目标不受影响）；后续翻卡若出现可感知卡顿再补。
+- 例句发音（M2）复用同一播放服务与解析策略。
 
 ### 9.2 离线包格式与下载
 
 离线包发布物：
 
 ```text
-gaokao-3500-v1.2/
-  manifest.json        # {"version":"1.2","wordbook_id":1,"file_count":3500,
-                       #  "total_size":...,"sha256":{...},"created_at":...}
+wordbook-gaokao-3500-v1.0/
+  manifest.json        # 版本、wordbook_id、file_count、total_size、
+                       # artifacts.audio_zip（file/size/sha256/total_size/file_count）、
+                       # artifacts.audio_files（逐文件 SHA-256）、created_at
+  wordbook-gaokao-3500-v1.0.db
+  audio-wordbook-gaokao-3500-v1.0.zip   # 内含 audio/000001.mp3 …（TD-08 布局）
   audio/000001.mp3
   audio/000002.mp3
   ...
 ```
 
-下载实现要求：
+manifest 由内容管线打包脚本生成（§10.2 打包），App 端消费
+`artifacts.audio_zip`（zip 整体 SHA-256 与解压后 total_size）与
+`artifacts.audio_files`（逐文件 SHA-256，解压后复核）。发布基址：
+`https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/`
+（TD-11 GitHub Releases；后续换对象存储只改常量，§18）。
 
-- 基于 WorkManager 的后台任务，**前台服务保活**（Android 大文件下载在后台受限）；
-- HTTP Range 断点续传，进度写入 `audio_packs.downloaded_size`；
-- 下载完成后校验 manifest 中的 SHA-256，通过后原子替换目录并置 `status=ready`；
-- Wi-Fi 下自动下载；蜂窝网络默认不自动下载（设置可开启，F5）；
-- 支持按词书下载/删除；设置页展示体积预估（3500 词约 50–100 MB）与当前状态；
-- 下载失败可重试（指数退避），不阻塞学习流程。
+**实现（2026-08-13 落地，`lib/data/sources/audio_pack_downloader.dart`）**：
+
+1. **触发**：应用启动（`main()` 后异步）与 Onboarding 完成后，
+   若词库已安装且 `audio_packs.status != ready`，注册一次性 WorkManager 任务
+   （唯一名 `audio-pack-<wordbookId>`，`ExistingWorkPolicy.keep`）。
+2. **约束**：默认 `NetworkType.unmetered`（Wi-Fi/非计费）；设置
+   `audio_download_on_cellular=true` 时改用 `NetworkType.connected`（F5）。
+   充电状态不强制（体积约 50–100 MB，用户通常愿意等待）。
+3. **前台服务**：`registerOneOffTask(..., foregroundServiceConfig:)` 以
+   `dataSync` 类型前台服务保活（Android 14+ 需 `FOREGROUND_SERVICE_DATA_SYNC`
+   权限与 `workmanager.enableDataSyncForegroundService=true` gradle 属性，
+   §11.2）；通知文案走 l10n。
+4. **断点续传**：目标 zip 先下载到 `<应用私有目录>/audio_packs/<wordbookId>/
+   downloads/<版本>.part`；HTTP `Range: bytes=<已下载大小>-` 请求（服务端不支持
+   Range 返回 200 时从头下载）。已下载大小与进度实时写入
+   `audio_packs.downloaded_size`。
+5. **校验**：zip 完整下载后计算 SHA-256 与 manifest
+   `artifacts.audio_zip.sha256` 比对，不一致则删除 .part、置 `status=not_downloaded`
+   并抛错（走 WorkManager 重试）。
+6. **解压与原子替换**：解压到 `staging-<版本>/`（解压后按
+   `artifacts.audio_files` 逐文件复核 SHA-256），全部通过后删除旧 `audio/` 目录、
+   将 staging 原子改名为 `audio/`，删除 .part，置 `status=ready`；
+   任一步失败保留旧包（若已存在）不影响在线兜底播放。
+7. **失败重试**：WorkManager `BackoffPolicy.exponential`（初始 5 分钟）；
+   单次失败保留 `downloading` 状态与 .part（下次续传），不阻塞学习流程。
+8. **删除**：设置页（M1 设置页，单元 4）触发取消任务、删除行与包目录，
+   回到 `not_downloaded`。
+
+### 9.3 下载状态机（audio_packs 表）
+
+```mermaid
+stateDiagram-v2
+    [*] --> not_downloaded
+    not_downloaded --> downloading: 注册/开始下载
+    downloading --> ready: 校验通过 + 原子替换
+    downloading --> downloading: 失败/中断（保留 .part 与 downloaded_size，退避重试）
+    ready --> not_downloaded: 用户删除 / 版本失效
+```
+
+- 状态与版本、大小信息存 `audio_packs`（§8.1），进度由下载器每块更新
+  `downloaded_size`；`status` 仅三态（表结构不变，§8.1）。
+- 词库升级（§8.2）后旧包版本与 `settings.wordbook_version` 不一致：
+  下载任务按新版本重新注册（`ExistingWorkPolicy.replace`），旧包目录
+  在解压替换时整体清除；升级导入不触碰 audio_packs（下载侧按版本自愈）。
+
+### 9.4 设置键
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `pronunciation_enabled` | `true` | 发音开关（F7），关闭后播放服务不发声 |
+| `audio_download_on_cellular` | `false` | 蜂窝网络允许自动下载离线包（F5） |
+
+键名定义在 `lib/core/constants.dart`，读写经 `AppSettings` /
+`SettingsRepository`（§8.1 settings 通用键值表，无 schema 变更）。
 
 ---
 
@@ -755,8 +819,17 @@ flowchart LR
 
 ### 11.2 离线包下载
 
-- WorkManager：Wi-Fi 约束 + 充电可选；前台服务用于保活与进度展示。
-- 断点续传与校验见第 9.2 节。
+- workmanager 0.10.7 一次性任务（唯一名 `audio-pack-<wordbookId>`）：
+  `NetworkType.unmetered` 默认 / `connected`（设置 `audio_download_on_cellular`）
+  的约束见 §9.2；`BackoffPolicy.exponential` 初始 5 分钟。
+- **前台服务**：`registerOneOffTask(..., foregroundServiceConfig:)` 以 `dataSync`
+  类型保活与进度通知。Android 14+ 需在应用 manifest 声明
+  `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_DATA_SYNC`，并在
+  `android/gradle.properties` 设 `workmanager.enableDataSyncForegroundService=true`
+  （插件据此合并 dataSync 前台服务声明，§3.2）。
+- 断点续传、SHA-256 校验与原子替换见第 9.2 节；Android 13+
+  `POST_NOTIFICATIONS` 权限引导由每日提醒（§11.1）统一处理，前台服务通知
+  在未授权时仅降级展示，不影响下载执行。
 
 ---
 
@@ -889,3 +962,7 @@ flowchart LR
 | 例句筛选 | 句长 ≤ 18 词、高中词汇范围 | PRD §7.2 |
 | 时区 | Asia/Shanghai（可设置） | 调度日边界 |
 | 首次启动引导（onboarding_done） | false（完成 Onboarding 后置 true） | 首启路由判定（§5.1），键名 `onboarding_done` |
+| 发音开关（pronunciation_enabled） | true | F7，关闭后播放服务不发声（§9.4） |
+| 蜂窝下载离线包（audio_download_on_cellular） | false | F5，默认仅 Wi-Fi/非计费网络自动下载（§9.2） |
+| 离线包发布基址 | `https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/` | TD-11；换对象存储只改此常量（§9.2） |
+| 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
