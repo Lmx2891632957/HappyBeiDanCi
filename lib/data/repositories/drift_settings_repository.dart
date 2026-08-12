@@ -35,9 +35,15 @@ class DriftSettingsRepository implements SettingsRepository {
         AppSettingKeys.reminderEnabled,
         defaults.reminderEnabled,
       ),
-      reminderTime: values[AppSettingKeys.reminderTime] ?? defaults.reminderTime,
+      reminderTime:
+          values[AppSettingKeys.reminderTime] ?? defaults.reminderTime,
       examDate: _readExamDate(values, defaults.examDate),
       timezone: values[AppSettingKeys.timezone] ?? defaults.timezone,
+      onboardingDone: _readBool(
+        values,
+        AppSettingKeys.onboardingDone,
+        defaults.onboardingDone,
+      ),
     );
 
     // 缺失键回填默认值：settings 为通用键值表，缺键按默认值补齐，
@@ -64,9 +70,11 @@ class DriftSettingsRepository implements SettingsRepository {
     // 单写连接批量 upsert（§8.2）：一次保存全量键，避免部分更新残留旧值。
     return _db.transaction(() async {
       for (final entry in encoded.entries) {
-        await _db.into(_db.settings).insertOnConflictUpdate(
-          SettingsCompanion.insert(key: entry.key, value: entry.value),
-        );
+        await _db
+            .into(_db.settings)
+            .insertOnConflictUpdate(
+              SettingsCompanion.insert(key: entry.key, value: entry.value),
+            );
       }
     });
   }
@@ -83,18 +91,20 @@ class DriftSettingsRepository implements SettingsRepository {
   Future<void> set(String key, String value) {
     return _db
         .into(_db.settings)
-        .insertOnConflictUpdate(SettingsCompanion.insert(key: key, value: value));
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(key: key, value: value),
+        );
   }
 
   Map<String, String> _toMap(AppSettings settings) => {
     AppSettingKeys.dailyNewWords: settings.dailyNewWords.toString(),
-    AppSettingKeys.reviewCap:
-        settings.reviewCap?.toString() ?? _reviewCapOff,
+    AppSettingKeys.reviewCap: settings.reviewCap?.toString() ?? _reviewCapOff,
     AppSettingKeys.reminderEnabled: settings.reminderEnabled ? 'true' : 'false',
     AppSettingKeys.reminderTime: settings.reminderTime,
     AppSettingKeys.examDate:
         settings.examDate?.millisecondsSinceEpoch.toString() ?? '',
     AppSettingKeys.timezone: settings.timezone,
+    AppSettingKeys.onboardingDone: settings.onboardingDone ? 'true' : 'false',
   };
 
   /// 读取整数键；缺失用默认值，坏值抛 StateError（与既有仓储"损坏不静默"

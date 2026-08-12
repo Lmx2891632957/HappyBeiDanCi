@@ -7,6 +7,7 @@ class AppSettings {
     this.reminderTime = '20:00',
     this.examDate,
     this.timezone = 'Asia/Shanghai',
+    this.onboardingDone = false,
   });
 
   /// 每日新词目标（PRD F2，默认 20）。
@@ -26,4 +27,8 @@ class AppSettings {
 
   /// 调度日边界时区（TECH_DOC §18，默认 Asia/Shanghai）。
   final String timezone;
+
+  /// 首次启动引导是否已完成（TECH_DOC §18，默认 false；完成 Onboarding
+  /// 后置 true，供首启路由判定，§5.1）。
+  final bool onboardingDone;
 }

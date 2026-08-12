@@ -59,6 +59,10 @@ abstract final class AppSettingKeys {
   /// 调度日边界时区（IANA 名称文本，默认 Asia/Shanghai）。
   static const String timezone = 'timezone';
 
+  /// 首次启动引导是否已完成（'true'/'false'；缺失按默认 false 回填，
+  /// TECH_DOC §18，首启路由判定见 §5.1）。
+  static const String onboardingDone = 'onboarding_done';
+
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,
@@ -67,5 +71,6 @@ abstract final class AppSettingKeys {
     reminderTime,
     examDate,
     timezone,
+    onboardingDone,
   ];
 }
