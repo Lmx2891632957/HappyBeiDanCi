@@ -109,6 +109,240 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Project skeleton is ready.'**
   String get homeSkeletonReady;
+
+  /// No description provided for @homeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get homeTitle;
+
+  /// No description provided for @homeLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get homeLoading;
+
+  /// No description provided for @homeLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load: {error}'**
+  String homeLoadFailed(String error);
+
+  /// No description provided for @homeRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get homeRetry;
+
+  /// No description provided for @homeNoWordbook.
+  ///
+  /// In en, this message translates to:
+  /// **'No wordbook available (content pack not installed)'**
+  String get homeNoWordbook;
+
+  /// No description provided for @homeWordbook.
+  ///
+  /// In en, this message translates to:
+  /// **'Wordbook: {name}'**
+  String homeWordbook(String name);
+
+  /// No description provided for @homeNewWordsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New words'**
+  String get homeNewWordsLabel;
+
+  /// No description provided for @homeReviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Due reviews'**
+  String get homeReviewLabel;
+
+  /// No description provided for @homeDeferredHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} more words deferred to tomorrow'**
+  String homeDeferredHint(int count);
+
+  /// No description provided for @homeStartLearning.
+  ///
+  /// In en, this message translates to:
+  /// **'Start learning'**
+  String get homeStartLearning;
+
+  /// No description provided for @homeStartReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Start review'**
+  String get homeStartReview;
+
+  /// No description provided for @homeContinueSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue unfinished session'**
+  String get homeContinueSession;
+
+  /// No description provided for @homeAllDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s tasks completed'**
+  String get homeAllDone;
+
+  /// No description provided for @homeEncouragement.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep going — see you tomorrow!'**
+  String get homeEncouragement;
+
+  /// No description provided for @learnTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn new words'**
+  String get learnTitle;
+
+  /// No description provided for @reviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get reviewTitle;
+
+  /// No description provided for @sessionLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing cards…'**
+  String get sessionLoading;
+
+  /// No description provided for @sessionLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load session: {error}'**
+  String sessionLoadFailed(String error);
+
+  /// No description provided for @sessionFinishFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to finish session: {error}'**
+  String sessionFinishFailed(String error);
+
+  /// No description provided for @sessionRateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to rate: {error}'**
+  String sessionRateFailed(String error);
+
+  /// No description provided for @sessionRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get sessionRetry;
+
+  /// No description provided for @cardTapToFlip.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the card to see the meaning'**
+  String get cardTapToFlip;
+
+  /// No description provided for @rateAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t know'**
+  String get rateAgain;
+
+  /// No description provided for @rateHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sure'**
+  String get rateHard;
+
+  /// No description provided for @rateGood.
+  ///
+  /// In en, this message translates to:
+  /// **'Know it'**
+  String get rateGood;
+
+  /// No description provided for @feedbackAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t know: {word} (will appear again)'**
+  String feedbackAgain(String word);
+
+  /// No description provided for @feedbackHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Not sure: {word}'**
+  String feedbackHard(String word);
+
+  /// No description provided for @feedbackGood.
+  ///
+  /// In en, this message translates to:
+  /// **'Know it: {word}'**
+  String feedbackGood(String word);
+
+  /// No description provided for @audioUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio not available yet'**
+  String get audioUnavailable;
+
+  /// No description provided for @resultsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s results'**
+  String get resultsTitle;
+
+  /// No description provided for @resultsCheckinSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Check-in complete!'**
+  String get resultsCheckinSuccess;
+
+  /// No description provided for @resultsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Today: {newCount} new words · {reviewCount} reviews'**
+  String resultsSummary(int newCount, int reviewCount);
+
+  /// No description provided for @resultsProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s progress'**
+  String get resultsProgress;
+
+  /// No description provided for @resultsRemainingNew.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new words to go'**
+  String resultsRemainingNew(int count);
+
+  /// No description provided for @resultsRemainingReview.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reviews to go'**
+  String resultsRemainingReview(int count);
+
+  /// No description provided for @resultsTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow: about {count} new words'**
+  String resultsTomorrow(int count);
+
+  /// No description provided for @resultsEncouragement.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep going — see you tomorrow!'**
+  String get resultsEncouragement;
+
+  /// No description provided for @resultsBackHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to home'**
+  String get resultsBackHome;
+
+  /// No description provided for @resultsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load today\'s progress: {error}'**
+  String resultsLoadFailed(String error);
 }
 
 class _AppLocalizationsDelegate
