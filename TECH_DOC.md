@@ -269,6 +269,58 @@ stateDiagram-v2
   再次 `save`）保留 `created_at`、刷新 `updated_at`，单位为 epoch 毫秒（§7.5）。
   `word_id` 唯一性由 `(session_id, word_id)` 主键保证（§8.1）。
 
+#### 会话驱动（SessionDriver）契约（2026-08-12 会话驱动落地时新增）
+
+- 职责与位置：`lib/domain/sessions/session_driver.dart`，纯逻辑（不依赖
+  data/Flutter，AGENTS §3.2），注入 `SessionStateMachine` + `FsrsScheduler` +
+  `UserWordRepository` / `ReviewLogRepository` / `SessionRepository` /
+  `StatsRepository` 接口。驱动**不修改状态机与 FSRS 引擎的任何行为**，其语义以
+  既有单测为准；UI 通过驱动访问会话，不直接操作状态机。
+- 事件映射：
+  - `startNewSession`（新会话）→ `SessionStarted.fresh`；
+    `resumeSession`（恢复快照，快照由调用方先经 `SessionRepository.load`
+    取得）→ `SessionStarted.resume`；
+  - `fetchCard` → 把 `CardFetched`（Requeue→Fetching 与 Fetching→Showing 两次
+    事件）折叠为一次取卡，返回当前展示词；仅允许在 Requeue/Fetching 阶段调用；
+  - `rate(rating)` → `CardRated` → 驱动完成 FSRS 调度与落库（user_words +
+    review_logs）→ `RatingCommitted`（§5.4"拆分为独立事件的原因"：状态机不在
+    评分时立即消费卡片，调度与持久化由驱动在两次事件之间完成）；
+  - `interrupt` → `SessionInterrupted` → `SessionRepository.save`（同事务，
+    §5.4 快照持久化）；
+  - `finish` → `SessionFinished` → `SessionRepository.delete` +
+    `StatsRepository` 合并写 daily_stats（全部完成后由调用方写 daily_stats，
+    §5.4）。
+- 落库时序与失败口径（§5.2"写库失败不影响队列推进"的驱动实现）：
+  每次评分立即写 user_words 与 review_logs；两个写操作各自失败重试 1 次，
+  重试后仍失败则通过注入的日志回调记录并**继续推进队列**（仍触发
+  `RatingCommitted`），`rate` 返回 `persistFailures` 计数供 UI 提示。已知后果：
+  该次评分的 user_words/review_logs 可能缺失（或部分成功），调度正确性以
+  user_words 为准（§7.2 镜像字段不参与算法计算），日志缺失仅影响导出与调参
+  （T-06/§7.4）；已消费卡在本会话内不再出现，缺失的评分由该词按旧状态下次
+  到期重新调度兜底，不破坏学习闭环；快照（TD-07）保证队列推进可恢复。
+- 中断/恢复/完成时序：
+  - `interrupt`：快照保存失败**向上抛出**（区别于评分写库的"记录日志继续"），
+    因为快照是恢复的唯一依据（TD-07），静默丢弃违反 T-05；
+  - `finish`：先校验队列为空并触发 `SessionFinished`（完成数据在触发前捕获，
+    因状态机进入 Done 后清空 position 等元数据），再删除快照（幂等），最后
+    合并写 daily_stats；任一持久化失败向上抛出，驱动保留本次会话的完成数据，
+    调用方可重试 `finish`——快照删除幂等、daily_stats 先读后合并写，重试不会
+    重复计数；
+  - 恢复会话的 `wordbookId` 由调用方提供：sessions 表无 wordbook_id（§8.1），
+    TD-07 快照不含词书信息；今日任务页持有当前词书上下文，恢复时一并传入。
+- daily_stats 写入方式：`finish` 按会话类型累加——learning →
+  `new_count += 已消费卡数`；review → `review_count += 已消费卡数`、
+  `correct_count += 评分 ≥ 3 的次数`（§6.4）。先 `getByDay` 读当日，合并后
+  `upsert`，避免覆盖同日其他会话的计数；`completed` 打卡标记由任务完成页在
+  整日任务完成后写入，驱动不置位。
+- 字段口径（2026-08-12 会话驱动实现时明确）：
+  - `user_words.status` 派生：state=review 且 `scheduled_days ≥ 21` →
+    mature（Anki 口径的"间隔足够长"阈值，PRD §4"掌握"定义），state=review →
+    review，其余（new/learning/relearning）→ learning；
+  - `user_words` 无 step 列（§8.1），当前单步学习/重学配置（TD-05）下
+    learning/relearning 的 step 恒为 0，恢复后按 0 处理不影响调度；若未来启用
+    多步学习步骤，需先同步 §8.1 加列、迁移脚本并与用户确认。
+
 ---
 
 ## 6. 每日计划计算
