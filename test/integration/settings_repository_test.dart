@@ -44,14 +44,35 @@ void main() {
     expect(settings.reminderTime, AppConstants.defaultReminderTime);
     expect(settings.examDate, isNull);
     expect(settings.timezone, AppConstants.defaultTimezone);
+    expect(settings.onboardingDone, isFalse);
 
     // 回填已落库：全部键都存在。
     final rows = await db.select(db.settings).get();
     expect({for (final r in rows) r.key}, AppSettingKeys.all.toSet());
-    final reviewRow = rows.singleWhere((r) => r.key == AppSettingKeys.reviewCap);
+    final reviewRow = rows.singleWhere(
+      (r) => r.key == AppSettingKeys.reviewCap,
+    );
     expect(reviewRow.value, AppConstants.defaultReviewCap.toString());
     final examRow = rows.singleWhere((r) => r.key == AppSettingKeys.examDate);
     expect(examRow.value, isEmpty);
+    final onboardingRow = rows.singleWhere(
+      (r) => r.key == AppSettingKeys.onboardingDone,
+    );
+    expect(onboardingRow.value, 'false');
+  });
+
+  test('首启标记与每日目标：save(onboardingDone: true) → load 往返', () async {
+    final (_, repo) = openRepo('onboarding_flag');
+    await repo.save(const AppSettings(dailyNewWords: 30, onboardingDone: true));
+    final loaded = await repo.load();
+    expect(loaded.onboardingDone, isTrue);
+    expect(loaded.dailyNewWords, 30);
+    expect(await repo.get(AppSettingKeys.onboardingDone), 'true');
+
+    // 未完成引导的默认口径：标记为 false。
+    await repo.save(const AppSettings(onboardingDone: false));
+    final reloaded = await repo.load();
+    expect(reloaded.onboardingDone, isFalse);
   });
 
   test('save→load 往返：全部字段逐项一致', () async {
@@ -94,7 +115,10 @@ void main() {
     final loaded = await repo.load();
     expect(loaded.dailyNewWords, 20);
     expect(loaded.reviewCap, 300);
-    expect(await db.select(db.settings).get(), hasLength(AppSettingKeys.all.length));
+    expect(
+      await db.select(db.settings).get(),
+      hasLength(AppSettingKeys.all.length),
+    );
   });
 
   test('get/set 单键读写；get 缺失返回 null', () async {
@@ -106,9 +130,14 @@ void main() {
 
   test('部分缺键 load：缺失键回填、既有键保留', () async {
     final (db, repo) = openRepo('partial');
-    await db.into(db.settings).insert(
-      SettingsCompanion.insert(key: AppSettingKeys.dailyNewWords, value: '50'),
-    );
+    await db
+        .into(db.settings)
+        .insert(
+          SettingsCompanion.insert(
+            key: AppSettingKeys.dailyNewWords,
+            value: '50',
+          ),
+        );
     final loaded = await repo.load();
     expect(loaded.dailyNewWords, 50);
     expect(loaded.reviewCap, AppConstants.defaultReviewCap);

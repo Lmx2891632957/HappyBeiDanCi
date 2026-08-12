@@ -21,6 +21,8 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('happy_beidanci_widget');
     db = openTestDb(tempDir, 'app');
     await seedWordbook(db, wordCount: 3);
+    // 首启标记已置：直接渲染今日任务页（首启流程由 onboarding_widget_test 覆盖）。
+    await seedOnboardingDone(db);
   });
 
   tearDown(() async {

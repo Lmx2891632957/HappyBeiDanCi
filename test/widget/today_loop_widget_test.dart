@@ -21,6 +21,8 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('happy_beidanci_loop');
     db = openTestDb(tempDir, 'loop');
     await seedWordbook(db, wordCount: 3);
+    // 首启标记已置：测试从今日任务页入口开始（首启流程单独覆盖）。
+    await seedOnboardingDone(db);
   });
 
   tearDown(() async {
@@ -35,9 +37,7 @@ void main() {
     child: const App(),
   );
 
-  testWidgets('全流程：今日页 → 学习 3 词 → 完成页打卡（daily_stats 置位）', (
-    tester,
-  ) async {
+  testWidgets('全流程：今日页 → 学习 3 词 → 完成页打卡（daily_stats 置位）', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
@@ -63,9 +63,7 @@ void main() {
     expect(await db.select(db.sessions).get(), isEmpty);
   });
 
-  testWidgets('中断恢复：学习中返回 → 快照保存 → 继续入口 → 队列一致并完成', (
-    tester,
-  ) async {
+  testWidgets('中断恢复：学习中返回 → 快照保存 → 继续入口 → 队列一致并完成', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
