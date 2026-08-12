@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+
+# Dart / Flutter / Pub
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 日志与本地配置
+*.log
+*.local
+.env
+.env.*
+!*.env.example
+
+# Android 构建产物
+/android/app/debug
+/android/app/profile
+/android/app/release
+*.apk
+*.aab
+
+# 词库/音频发布产物（AGENTS.md §5.3：不进源码仓库）
+tools/content_pipeline/output/
+*.db
+*.sqlite
+*.zip
+*.mp3
