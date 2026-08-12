@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "appTitle": "Wo Ai Bei Dan Ci",
+  "@appTitle": {
+    "description": "应用显示名称（英文界面文案）"
+  },
+  "homeSkeletonReady": "Project skeleton is ready.",
+  "@homeSkeletonReady": {
+    "description": "首页占位提示：工程骨架已就绪"
+  }
+}
