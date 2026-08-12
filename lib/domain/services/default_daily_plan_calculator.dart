@@ -8,7 +8,7 @@ import 'daily_plan_calculator.dart';
 
 /// 每日计划计算器（常规模式，TECH_DOC §6.1）：纯逻辑，不读写数据库。
 class DefaultDailyPlanCalculator implements DailyPlanCalculator {
-  DefaultDailyPlanCalculator({ReviewQueueBuilder? queueBuilder})
+  const DefaultDailyPlanCalculator({ReviewQueueBuilder? queueBuilder})
       : _queueBuilder = queueBuilder ?? const DefaultReviewQueueBuilder();
 
   final ReviewQueueBuilder _queueBuilder;
