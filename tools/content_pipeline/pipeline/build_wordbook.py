@@ -61,7 +61,12 @@ def parse_meanings(translation: str, pos_field: str) -> list[dict]:
     out: list[dict] = []
     # ECDICT CSV 中换行以字面 "\n" 存储（不是真实换行），两种都兼容。
     for raw in re.split(r"\\n|\n", translation.replace("\r", "")):
-        line = common.BRACKET_NOISE_RE.sub("", raw).strip()
+        stripped = raw.strip()
+        # [经]/[计]/[医] 等带方括号的义项是领域标注，非高中常用义，直接剔除
+        #（TECH_DOC §10.2 释义规则：只保留最常用义项）。
+        if stripped.startswith("["):
+            continue
+        line = common.BRACKET_NOISE_RE.sub("", stripped).strip()
         if not line:
             continue
         m = common.POS_RE.match(line)
@@ -140,7 +145,10 @@ def select_examples(
     seen_texts: set[str] = set()
     for i in sentence_idx.per_word.get(word, ()):
         sid, text, username = sentence_idx.records[i]
-        if text in seen_texts:
+        # 近重复去重：忽略标点与大小写，避免同一句的 "Don't abandon me!"
+        # 与 "Don't abandon me." 同时入选。
+        seen_key = "".join(ch for ch in text.lower() if ch.isalnum() or ch == " ")
+        if seen_key in seen_texts:
             continue
         tokens = common.tokenize(text)
         if word not in tokens:
@@ -153,7 +161,7 @@ def select_examples(
             for t in tokens
         ):
             continue
-        seen_texts.add(text)
+        seen_texts.add(seen_key)
         candidates.append((len(tokens), sid, text, username))
 
     candidates.sort(key=lambda c: (c[0], c[1]))  # 优先短句，其次句子 ID（稳定）
