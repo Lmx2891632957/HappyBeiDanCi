@@ -161,6 +161,21 @@ test/
 > 2. **数据库表定义位于 `data/local/tables/`**（一表一文件），`app_database.dart` 负责装配与连接，`migrations.dart` 承载 schema 版本与迁移策略。
 > 3. **国际化**：ARB 与生成物均位于 `lib/app/l10n/`。Flutter 3.44 起 gen-l10n 不再生成 synthetic package，`app_localizations*.dart` 生成物随源码提交（便于离线构建与静态分析），改动 ARB 后需运行 `flutter gen-l10n` 并一并提交。
 
+> 结构补充说明（2026-08-12 TD-07 每日核心循环 UI 收口时新增）：
+> 4. **页面路由与装配**：`lib/app/router.dart` 注册 home/learn/review/results 四路由；
+>    `lib/app/providers.dart` 提供数据库、各仓储、FSRS 调度器、每日计划计算器与
+>    `SessionDriver` 的 Riverpod provider（驱动为 `autoDispose`，一场会话一实例，
+>    进入 Done 后不可复用，TECH_DOC §5.4）。UI 不直接读写数据库（AGENTS §3.2）。
+> 5. **学习/复习共用会话组件**：共用会话流程（`SessionFlow`，含取卡/评分/中断/完成
+>    编排）与卡片/三键组件位于 `features/learn/`（`session_flow.dart`、
+>    `widgets/session_card.dart`、`widgets/rating_buttons.dart`），复习页复用，
+>    避免重复实现；学习与复习仅以 `SessionType` 与初始队列区分。待功能稳定后
+>    可抽 `features/session/` 共享层再迁移。
+> 6. **Onboarding 取舍（TD-07 阶段）**：暂以“直通今日任务页”替代——应用启动即进入
+>    今日任务页，使用默认词书（`getWordbooks` 排序后第一个）与默认设置
+>    （每日目标 20、软上限 300，TECH_DOC §18）即可开用；Onboarding
+>    （选词书 → 设每日目标 → 熟词跳过）页留待 M1 后续迭代，不在本步宣称已完整实现。
+
 ---
 
 ## 5. 核心流程设计
@@ -169,10 +184,19 @@ test/
 
 1. 打开 App → 初始化数据库（WAL、迁移）→ 读取设置与词书状态。
 2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 熟词跳过 → 开始）；再次启动直达今日任务页。
-3. 今日任务页计算：
+   > TD-07 阶段取舍：Onboarding 暂以“直通今日任务页”实现（默认词书 + 默认设置即可
+   > 开用，见 §4 补充说明 6），Onboarding 页待 M1 后续迭代。
+3. 今日任务页计算（TD-07 收口时明确的数据流，见 §6.1）：
    - 待学新词 = min(每日目标, 词书剩余新词，按"高频→中频→低频"优先）；
    - 待复习 = 所有 `due_date <= 今日结束` 的词，按逾期严重度排序，截取软上限（默认 300）。
+   - 实现：今日页通过 `SettingsRepository.load` 读设置、`WordbookRepository` 取默认
+     词书与剩余新词、`UserWordRepository.getDueWords` 取到期词（按当前词书过滤）后，
+     交 `DefaultDailyPlanCalculator` 计算；结果仅用于展示与构建会话入口，不落库。
 4. 若存在未完成的会话快照（T-05），进入时提示"继续上次未完成的学习"，恢复原队列。
+   - `SessionRepository.loadAll` 按 `updated_at` 降序返回未完成快照（最新会话优先）；
+     MVP 多快照并存时仅提供最近一个“继续”入口，恢复后沿用该快照的会话类型与队列。
+   - M1 单词书假设：到期词按当前默认词书过滤在今日页完成；多词书支持需扩展
+     `UserWordRepository.getDueWords` 按词书过滤（后续迭代）。
 
 ### 5.2 学习会话（新词）
 
@@ -198,6 +222,11 @@ test/
 | 进阶（可关闭） | 听音辨义 |
 
 每题作答后有即时反馈（释义、例句、发音）。**答错立即回到队尾，本次会话内至少再见一次**（同样最多重排 2 次）。
+
+> TD-07 阶段取舍：复习会话本步只实现“认识/不认识快速判断”卡片——与学习会话共用
+> “卡片展示 + 三键反馈”（认识/模糊/不认识 → Good/Hard/Again，§7.3），评分后展示
+> 释义/例句即时反馈；四选一、看义选词、拼写、听音辨义等题型分配（本表）属 M1
+> 后续迭代，本步不实现。
 
 ### 5.4 会话状态机（学习与复习共用）
 
@@ -325,6 +354,24 @@ stateDiagram-v2
   - `user_words` 无 step 列（§8.1），当前单步学习/重学配置（TD-05）下
     learning/relearning 的 step 恒为 0，恢复后按 0 处理不影响调度；若未来启用
     多步学习步骤，需先同步 §8.1 加列、迁移脚本并与用户确认。
+
+### 5.5 任务完成页与打卡判定（2026-08-12 TD-07 收口时新增）
+
+- 会话 finish 后进入任务完成页：页面读取当日 `daily_stats`（含本场会话由
+  `SessionDriver.finish` 累加的计数）与重算的今日计划，展示今日累计进度。
+- **整日任务完成判定（产品口径，与 PRD §5 任务完成页对齐）**：
+  `daily_stats.new_count ≥ 今日计划 new_word_count` **且**
+  `daily_stats.review_count ≥ 今日计划 review_count`；
+  被复习软上限顺延的词（未进入计划队列、保持原 due_date，§6.1）**不阻塞打卡**。
+  实现为纯逻辑 `DailyCheckinCalculator.isTodayComplete(plan, stats)`
+  （`lib/domain/services/daily_checkin_calculator.dart`），可单测。
+- 判定满足时置 `daily_stats.completed = 1`（打卡，用于连续打卡天数，§6.4），
+  并展示“明日预告 + 鼓励文案”（PRD §5）；不满足时不置位，展示进度差并引导
+  继续（回到今日页）。`completed` 置位由任务完成页负责，`SessionDriver` 不置位
+  （§5.4 驱动契约）。
+- 口径说明：复习计数含会话内重排的重复出现（驱动按已消费卡数累加，§5.4），
+  因此“完成整场计划队列”后必然满足 `review_count ≥ 计划 review_count`；
+  顺延词因重算计划时仍到期但未进入队列（数量 ≤ 软上限），同样不阻塞判定。
 
 ---
 
@@ -591,6 +638,16 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 - 进度稳定，不会因重启/换天导致顺序漂移；
 - 考前突击时可切换"按词表顺序"。
 
+> TD-07 收口时明确（WordbookRepository 契约）：
+> - `getWordsByBook(bookId, {limit, offset})` 返回词书内**尚未学习**的词
+>   （无 `user_words` 行且 `is_skipped = 0`），按“频段（high→medium→low）、
+>   shuffled 递增”排序；`offset/limit` 作用于过滤后的新词序列，供学习会话
+>   按计划取词。
+> - `countRemainingNewWords(bookId)` 以同一过滤口径计数，供今日页
+>   “词书剩余新词”展示与计划计算（§5.1/§6.1）。
+> - `getWordsByIds(ids)` 批量按 ID 取词（返回顺序与入参一致），供会话页
+>   卡片展示（复习队列词已学习、不在 `getWordsByBook` 结果内）。
+
 ---
 
 ## 9. 音频与离线包设计
@@ -731,6 +788,12 @@ flowchart LR
 - 中断恢复测试：学习中途 kill 进程 → 重启 → 队列一致；
 - 离线场景：飞行模式下完成全部核心流程；
 - 词库版本升级迁移测试（v1→v2 数据不丢）。
+
+> TD-07 阶段实现口径：全流程与中断恢复的自动化验证以“驱动 + 仓储级集成测试”
+> （真实 `AppDatabase.forTesting` + `NativeDatabase` 临时文件，见
+> `test/integration/`）与页面 Widget 测试覆盖；Onboarding 直通（§4 补充说明 6），
+> 全流程测试从今日任务页入口开始。UI 级点击链路（今日页 → 会话页 → 完成页）
+> 由 Widget 测试补充。
 
 ### 14.3 CI 与发布
 
