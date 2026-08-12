@@ -244,6 +244,31 @@ stateDiagram-v2
 - 中断在 `Requeue`：重排已生效，快照含追加到队尾的重排卡（`requeue_left` 已减一），恢复后先展示队首的下一张卡。
 - 会话进入 `Done` 后 `snapshot` 置空；快照持久化与删除由调用方负责，状态机不写数据库。全部完成后由调用方写 `daily_stats` 并进入任务完成页。
 
+#### 快照持久化（TD-07 落库口径，2026-08-12 确认）
+
+- 契约：`lib/domain/services/session_repository.dart`（纯接口，不依赖 data/Flutter），
+  实现 `lib/data/repositories/drift_session_repository.dart`（注入 `AppDatabase`）。
+  调用方为今日任务页（§5.1 第 4 点"存在未完成会话"提示）与会话页（中断落库、启动恢复）；
+  UI 不直接读写两表（AGENTS §3.2）。
+- 保存（`save`）：`sessions` 一行 + `session_items` **全量替换**，在**同一个数据库事务**
+  内完成（§8.2 单写连接 + 批量事务）。全量替换的原因：快照是剩余队列的唯一编码（TD-07），
+  逐行 diff 无收益且易残留旧行；同事务的原因：两表必须同时可见或同时不可见，
+  部分写入会制造"缺 sessions 行的 session_items"或旧 items 残留式损坏。
+- 删除（`delete`）：`sessions` 与 `session_items` 两表**同事务**清理，会话进入 Done 后调用，
+  保证不留下孤儿行。
+- 加载（`load`/`loadAll`）：按 `seq` 升序读取 `session_items`，组装为 `SessionSnapshot`
+  （`session_type` 用 `SessionType.storageValue` 映射），可直接交给状态机
+  `SessionStarted.resume`；`loadAll` 返回全部未完成会话，供今日任务页枚举。
+- 损坏/非法快照口径：`load`/`loadAll` **校验并抛出明确错误（`StateError`，含 sessionId 与
+  原因），不静默丢弃、不自动修复**，与状态机 `_restoreFromSnapshot` 拒绝非法输入的口径一致。
+  校验项：存在 `session_items` 但缺少 `sessions` 行（孤儿行）、`seq` 不连续、
+  `position`/`requeueLeft`/`wordId` 为负、未知 `session_type`。仅当整个 sessionId
+  不存在任何行时 `load` 返回 null；`session_items` 为空视为合法快照（队列已清空但未完成，
+  等待 `SessionFinished`）。
+- 时间戳语义：首次插入 `created_at`/`updated_at` 均填当前时间；覆盖保存（同 sessionId
+  再次 `save`）保留 `created_at`、刷新 `updated_at`，单位为 epoch 毫秒（§7.5）。
+  `word_id` 唯一性由 `(session_id, word_id)` 主键保证（§8.1）。
+
 ---
 
 ## 6. 每日计划计算
@@ -459,6 +484,9 @@ CREATE TABLE session_items (
   requeue_left INTEGER NOT NULL DEFAULT 0,   -- 该词剩余重排次数
   PRIMARY KEY (session_id, word_id)
 );
+
+> 快照持久化行为（保存/删除事务语义、损坏数据处理口径、时间戳语义）见
+> §5.4"快照持久化"小节。
 
 -- 设置（每日目标、软上限、发音、语言、提醒、题型开关、考试日期）
 CREATE TABLE settings (
