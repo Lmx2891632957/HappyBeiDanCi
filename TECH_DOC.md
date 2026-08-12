@@ -235,6 +235,14 @@ stateDiagram-v2
 顺延     = len(复习队列) - 复习数           // 保持原 due_date，次日自然排在最前
 ```
 
+实现为纯逻辑，不读写数据库：`dailyGoal`、词书剩余新词数、到期词列表
+（`due_date <= 今日结束`，由仓储查询）、`reviewCap` 与"今日零点"（见 6.2）
+均由调用方（今日任务页 → 仓储）传入。契约见
+`lib/domain/services/daily_plan_calculator.dart`（实现：
+`lib/domain/services/default_daily_plan_calculator.dart`），结果 `DailyPlan`
+（`lib/domain/models/daily_plan.dart`）包含 `newWordCount`、`reviewQueue`
+（已排序并截断）、`reviewCount` 与 `deferredCount`。
+
 ### 6.2 复习队列排序（逾期严重度）
 
 定义 `overdueDays = floor((今日零点 - due_date) / 1天)`，排序键：
@@ -244,6 +252,18 @@ stateDiagram-v2
 3. 三键：`word_id` 升序（确定性，便于测试）。
 
 超出软上限的词**不修改 due_date**，次日自动排在最前，实现"按逾期严重程度顺延"且无惩罚语义（补卡机制，PRD §6 F2）。
+
+> 口径说明（2026-08-12 实现时确认）：
+> - "今日零点"（`todayStart`）由调用方按调度时区（§18，默认 Asia/Shanghai）
+>   换算为当日 00:00:00 后传入构建器；构建器只做纯算术，不感知时区。
+> - `overdueDays` 按天向下取整：正值 = 已逾期天数；`0` = 昨日到期（未满 1 天）
+>   或恰为今日零点到期；`-1` = 今日零点之后到期（尚未逾期）。同日到期归入同一桶，
+>   桶内按次键/三键排序。
+> - 到期词列表须已按 `due_date <= 今日结束` 过滤（仓储契约
+>   `UserWordRepository.getDueWords`）；`due_date` 为空的词不进入该列表，
+>   构建器兜底按今日到期处理。
+> - 契约：`lib/domain/scheduling/review_queue_builder.dart`；实现：
+>   `lib/domain/scheduling/default_review_queue_builder.dart`。
 
 ### 6.3 高考倒计时模式（M3）
 
