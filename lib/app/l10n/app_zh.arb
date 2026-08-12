@@ -1,0 +1,166 @@
+{
+  "@@locale": "zh",
+  "appTitle": "我爱背单词",
+  "onboardingTitle": "开始使用",
+  "onboardingWordbookLabel": "选择词书",
+  "onboardingDailyGoalLabel": "每日新词目标（词/天）",
+  "onboardingStart": "开始",
+  "onboardingNoWordbook": "暂无可用词书（词库包未安装）",
+  "onboardingLoadFailed": "初始化失败：{error}",
+  "@onboardingLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSaveFailed": "保存设置失败：{error}",
+  "@onboardingSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSkeletonReady": "工程骨架已就绪。",
+  "homeTitle": "今日任务",
+  "homeLoading": "加载中…",
+  "homeLoadFailed": "加载失败：{error}",
+  "@homeLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeRetry": "重试",
+  "homeNoWordbook": "暂无可用词书（词库包未安装）",
+  "homeWordbook": "词书：{name}",
+  "@homeWordbook": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeNewWordsLabel": "待学新词",
+  "homeReviewLabel": "待复习",
+  "homeDeferredHint": "另有 {count} 词顺延至明日",
+  "@homeDeferredHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartLearning": "开始学习",
+  "homeStartReview": "开始复习",
+  "homeContinueSession": "继续上次未完成的学习",
+  "homeAllDone": "今日任务已完成",
+  "homeEncouragement": "坚持就是胜利，明天见！",
+  "learnTitle": "学习新词",
+  "reviewTitle": "复习",
+  "sessionLoading": "准备卡片…",
+  "sessionLoadFailed": "会话加载失败：{error}",
+  "@sessionLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionFinishFailed": "完成会话失败：{error}",
+  "@sessionFinishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionRateFailed": "评分失败：{error}",
+  "@sessionRateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionRetry": "重试",
+  "cardTapToFlip": "点击卡片查看释义",
+  "rateAgain": "不认识",
+  "rateHard": "模糊",
+  "rateGood": "认识",
+  "feedbackAgain": "不认识：{word}（稍后再次出现）",
+  "@feedbackAgain": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "feedbackHard": "模糊：{word}",
+  "@feedbackHard": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "feedbackGood": "认识：{word}",
+  "@feedbackGood": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "audioUnavailable": "发音暂不可用",
+  "resultsTitle": "今日成果",
+  "resultsCheckinSuccess": "打卡成功！",
+  "resultsSummary": "今日已学新词 {newCount} · 复习 {reviewCount}",
+  "@resultsSummary": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "reviewCount": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsProgress": "今日进度",
+  "resultsRemainingNew": "还差 {count} 个新词",
+  "@resultsRemainingNew": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsRemainingReview": "还差 {count} 个复习",
+  "@resultsRemainingReview": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsTomorrow": "明日预告：预计新词 {count} 个",
+  "@resultsTomorrow": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsEncouragement": "坚持就是胜利，明天见！",
+  "resultsBackHome": "回到首页",
+  "resultsLoadFailed": "加载今日进度失败：{error}",
+  "@resultsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
+}

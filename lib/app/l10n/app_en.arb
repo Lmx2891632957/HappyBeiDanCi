@@ -1,0 +1,189 @@
+{
+  "@@locale": "en",
+  "appTitle": "Wo Ai Bei Dan Ci",
+  "@appTitle": {
+    "description": "应用显示名称（英文界面文案）"
+  },
+  "onboardingTitle": "Get started",
+  "@onboardingTitle": {
+    "description": "首次启动引导页标题"
+  },
+  "onboardingWordbookLabel": "Choose your wordbook",
+  "@onboardingWordbookLabel": {
+    "description": "首次启动引导页：选择词书"
+  },
+  "onboardingDailyGoalLabel": "Daily new words goal (words/day)",
+  "@onboardingDailyGoalLabel": {
+    "description": "首次启动引导页：每日新词目标"
+  },
+  "onboardingStart": "Start",
+  "@onboardingStart": {
+    "description": "首次启动引导页：开始按钮"
+  },
+  "onboardingNoWordbook": "No wordbook available (content pack not installed)",
+  "@onboardingNoWordbook": {
+    "description": "词库包未安装时的引导页提示"
+  },
+  "onboardingLoadFailed": "Failed to initialize: {error}",
+  "@onboardingLoadFailed": {
+    "description": "首次启动初始化失败",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSaveFailed": "Failed to save settings: {error}",
+  "@onboardingSaveFailed": {
+    "description": "引导页保存设置失败",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSkeletonReady": "Project skeleton is ready.",
+  "@homeSkeletonReady": {
+    "description": "首页占位提示：工程骨架已就绪"
+  },
+  "homeTitle": "Today",
+  "homeLoading": "Loading…",
+  "homeLoadFailed": "Failed to load: {error}",
+  "@homeLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeRetry": "Retry",
+  "homeNoWordbook": "No wordbook available (content pack not installed)",
+  "homeWordbook": "Wordbook: {name}",
+  "@homeWordbook": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "homeNewWordsLabel": "New words",
+  "homeReviewLabel": "Due reviews",
+  "homeDeferredHint": "{count} more words deferred to tomorrow",
+  "@homeDeferredHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartLearning": "Start learning",
+  "homeStartReview": "Start review",
+  "homeContinueSession": "Continue unfinished session",
+  "homeAllDone": "Today's tasks completed",
+  "homeEncouragement": "Keep going — see you tomorrow!",
+  "learnTitle": "Learn new words",
+  "reviewTitle": "Review",
+  "sessionLoading": "Preparing cards…",
+  "sessionLoadFailed": "Failed to load session: {error}",
+  "@sessionLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionFinishFailed": "Failed to finish session: {error}",
+  "@sessionFinishFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionRateFailed": "Failed to rate: {error}",
+  "@sessionRateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionRetry": "Retry",
+  "cardTapToFlip": "Tap the card to see the meaning",
+  "rateAgain": "Don't know",
+  "rateHard": "Not sure",
+  "rateGood": "Know it",
+  "feedbackAgain": "Don't know: {word} (will appear again)",
+  "@feedbackAgain": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "feedbackHard": "Not sure: {word}",
+  "@feedbackHard": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "feedbackGood": "Know it: {word}",
+  "@feedbackGood": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "audioUnavailable": "Audio not available yet",
+  "resultsTitle": "Today's results",
+  "resultsCheckinSuccess": "Check-in complete!",
+  "resultsSummary": "Today: {newCount} new words · {reviewCount} reviews",
+  "@resultsSummary": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "reviewCount": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsProgress": "Today's progress",
+  "resultsRemainingNew": "{count} new words to go",
+  "@resultsRemainingNew": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsRemainingReview": "{count} reviews to go",
+  "@resultsRemainingReview": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsTomorrow": "Tomorrow: about {count} new words",
+  "@resultsTomorrow": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resultsEncouragement": "Keep going — see you tomorrow!",
+  "resultsBackHome": "Back to home",
+  "resultsLoadFailed": "Failed to load today's progress: {error}",
+  "@resultsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
+}

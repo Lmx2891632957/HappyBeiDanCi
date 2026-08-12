@@ -1,7 +1,8 @@
 # 背单词软件技术文档（TECH_DOC v1.0）
 
 > 关联文档：[PRD.md](./PRD.md)（v0.3 定稿，决策已确认）
-> 状态：v1.1；技术决策已全部确认（2026-08-12），可进入开发
+> 状态：v1.2；技术决策已全部确认（2026-08-12），可进入开发
+> v1.2 变更：M1 Onboarding 最小版落地（首启判定、路由、词书选择口径与熟词跳过取舍，见 §4/§5.1）
 > 读者：Android/跨平台开发工程师、测试、内容运营、后续接手的维护者
 
 ---
@@ -129,17 +130,17 @@ graph TD
 ```text
 lib/
   main.dart
-  app/                    # 应用装配：主题、路由、国际化、依赖注入
+  app/                    # 应用装配：主题、路由、国际化（l10n/）、依赖注入
   core/                   # 基础设施：Result 类型、日志、时间工具、常量
   data/
-    local/                # Drift 表定义、DAO、迁移脚本
-    repositories/         # 仓储实现（词书、单词、用户状态、日志、设置、统计）
+    local/                # Drift 表定义（tables/）、DAO、迁移脚本
+    repositories/         # 仓储实现（domain/services 中接口的具体实现）
     sources/              # 词库导入、离线包下载、音频在线源
   domain/
     models/               # Wordbook / Word / UserWord / ReviewLog / Settings…
-    scheduling/           # FSRS 引擎封装、队列构建与排序、软上限
+    scheduling/           # FSRS 引擎（fsrs/）、Scheduler 接口、队列构建与排序、软上限
     sessions/             # 学习/复习会话状态机（纯逻辑）
-    services/             # 每日计划、打卡/统计、倒计时计划、导出
+    services/             # 仓储接口（契约）+ 每日计划、打卡/统计、倒计时计划、导出
   features/
     onboarding/           # 首次启动：选词书 → 每日目标 → 熟词跳过
     home/                 # 今日任务页
@@ -156,6 +157,41 @@ test/
   integration/            # 全流程集成测试
 ```
 
+> 结构补充说明（2026-08-12 骨架落地时确认）：
+> 1. **仓储接口定义在 `domain/services/`**，`data/repositories/` 只放实现，保证 `domain` 不依赖 `data`（AGENTS §3.2 依赖方向）；各仓储接口文件按“一个接口一个文件”组织。
+> 2. **数据库表定义位于 `data/local/tables/`**（一表一文件），`app_database.dart` 负责装配与连接，`migrations.dart` 承载 schema 版本与迁移策略。
+> 3. **国际化**：ARB 与生成物均位于 `lib/app/l10n/`。Flutter 3.44 起 gen-l10n 不再生成 synthetic package，`app_localizations*.dart` 生成物随源码提交（便于离线构建与静态分析），改动 ARB 后需运行 `flutter gen-l10n` 并一并提交。
+
+> 结构补充说明（2026-08-12 TD-07 每日核心循环 UI 收口时新增）：
+> 4. **页面路由与装配**：`lib/app/router.dart` 注册 home/learn/review/results 四路由；
+>    v1.2 起增补 onboarding/splash 两路由（首启流程，§5.1）；
+>    `lib/app/providers.dart` 提供数据库、各仓储、FSRS 调度器、每日计划计算器、
+>    `SessionDriver` 与首启门卫 `onboardingGateProvider` 的 Riverpod provider
+>    （驱动为 `autoDispose`，一场会话一实例，进入 Done 后不可复用，TECH_DOC §5.4）。
+>    UI 不直接读写数据库（AGENTS §3.2）。
+> 5. **学习/复习共用会话组件**：共用会话流程（`SessionFlow`，含取卡/评分/中断/完成
+>    编排）与卡片/三键组件位于 `features/learn/`（`session_flow.dart`、
+>    `widgets/session_card.dart`、`widgets/rating_buttons.dart`），复习页复用，
+>    避免重复实现；学习与复习仅以 `SessionType` 与初始队列区分。待功能稳定后
+>    可抽 `features/session/` 共享层再迁移。
+> 6. **Onboarding（M1 最小版，2026-08-12 落地）**：首启流程为
+>    「选词书 → 设每日目标 → 开始」单页（`features/onboarding/onboarding_page.dart`）；
+>    启动经 `features/onboarding/splash_page.dart` 首帧判定
+>    （`onboardingGateProvider`，§5.1）：`settings.onboarding_done=false`
+>    （缺失按默认回填）→ 进入 `/onboarding`；`true` → 直达 `/`（今日任务页）。
+>    每日目标与首启标记随 `SettingsRepository.save` 同事务落库（§8.1 settings），
+>    中断/重复进入不会造成重复初始化。
+> 7. **首启取舍（2026-08-12 本步明确）**：
+>    - **熟词跳过未实现**：Onboarding 不含“快速筛选已掌握词”（PRD F1/M1），
+>      `wordbook_items.is_skipped` 的读写留待 M1 后续迭代，不宣称已完整实现。
+>    - **词书选择口径**：Onboarding 展示 `getWordbooks()` 并默认选中第一个；
+>      M1 单词书场景下与今日页“默认第一个”等价（§5.1），暂不新增
+>      `active_wordbook_id` 设置键；多词书选择持久化与
+>      `UserWordRepository.getDueWords` 按词书过滤同属后续迭代。
+>    - **TD-06 运行时乱序初始化未触发**：测试 fixture 与词库包预置 `shuffled`，
+>      Onboarding 不生成运行时乱序；`seed = hash(wordbook_id, 设备安装时间)`
+>      的运行时初始化实现留待内容管线交付后按 §8.3 落地，表结构不变。
+
 ---
 
 ## 5. 核心流程设计
@@ -163,11 +199,29 @@ test/
 ### 5.1 启动与初始化
 
 1. 打开 App → 初始化数据库（WAL、迁移）→ 读取设置与词书状态。
-2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 熟词跳过 → 开始）；再次启动直达今日任务页。
-3. 今日任务页计算：
+2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 开始；熟词跳过未实现，
+   见 §4 补充说明 7）；再次启动直达今日任务页。
+   - **首启判定**：启动先经 `/splash` 首帧渲染，`onboardingGateProvider`
+     读取 `settings.onboarding_done`（缺失按默认 `false` 回填，§18）；
+     `false` → 进入 `/onboarding`，`true` → 直达 `/`。设置读取为异步，
+     splash 等待期间不渲染今日页，避免首帧闪屏与重复初始化（§12）。
+   - **完成落库**：Onboarding「开始」以 `SettingsRepository.save` 一次事务写入
+     每日目标与 `onboarding_done=true`（原子、幂等），随后 `context.go('/')`
+     直达今日任务页；再次启动不再进入 Onboarding。
+   - **每日目标**：选项 10/20/30/50，默认 20（PRD F2 / §18），与
+     `AppConstants.defaultDailyNewWords` 一致；词书选择默认选中第一个
+     （多词书完整支持见 §4 补充说明 7）。
+3. 今日任务页计算（TD-07 收口时明确的数据流，见 §6.1）：
    - 待学新词 = min(每日目标, 词书剩余新词，按"高频→中频→低频"优先）；
    - 待复习 = 所有 `due_date <= 今日结束` 的词，按逾期严重度排序，截取软上限（默认 300）。
+   - 实现：今日页通过 `SettingsRepository.load` 读设置、`WordbookRepository` 取默认
+     词书与剩余新词、`UserWordRepository.getDueWords` 取到期词（按当前词书过滤）后，
+     交 `DefaultDailyPlanCalculator` 计算；结果仅用于展示与构建会话入口，不落库。
 4. 若存在未完成的会话快照（T-05），进入时提示"继续上次未完成的学习"，恢复原队列。
+   - `SessionRepository.loadAll` 按 `updated_at` 降序返回未完成快照（最新会话优先）；
+     MVP 多快照并存时仅提供最近一个“继续”入口，恢复后沿用该快照的会话类型与队列。
+   - M1 单词书假设：到期词按当前默认词书过滤在今日页完成；多词书支持需扩展
+     `UserWordRepository.getDueWords` 按词书过滤（后续迭代）。
 
 ### 5.2 学习会话（新词）
 
@@ -176,7 +230,7 @@ test/
 会话内规则：
 
 - **不认识（Again）**：本次会话内立即回到队尾，**至少再出现一次**；若再次答错最多再重排一次（每词每会话最多 2 次重排，防止无限循环）；会话结束后的下次复习间隔由 FSRS 学习步骤决定（10 分钟）。
-- **模糊（Hard）**：进入复习队列，由 FSRS 计算首次复习间隔（通常 1 天）。
+- **模糊（Hard）**：按官方 FSRS-5 学习步骤语义停留在 Learning，下次间隔 = 首个学习步骤 × 1.5（TD-05 下为 15 分钟），不直接毕业（毕业仅由 Good/Easy 触发，见 7.3 注）。
 - **认识（Good）**：推迟首次复习，由 FSRS 计算（通常 3–7 天）。
 - 每张卡作答后立即写 `user_words` 与 `review_logs`；写库失败不影响队列推进（先内存队列、批量落库）。
 
@@ -194,28 +248,155 @@ test/
 
 每题作答后有即时反馈（释义、例句、发音）。**答错立即回到队尾，本次会话内至少再见一次**（同样最多重排 2 次）。
 
+> TD-07 阶段取舍：复习会话本步只实现“认识/不认识快速判断”卡片——与学习会话共用
+> “卡片展示 + 三键反馈”（认识/模糊/不认识 → Good/Hard/Again，§7.3），评分后展示
+> 释义/例句即时反馈；四选一、看义选词、拼写、听音辨义等题型分配（本表）属 M1
+> 后续迭代，本步不实现。
+
 ### 5.4 会话状态机（学习与复习共用）
 
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Fetching: 进入会话
-    Fetching --> Showing: 取到下一张卡
-    Showing --> Rating: 用户作答
-    Rating --> Requeue: 答错(Again)且重排次数<2
-    Rating --> Fetching: 答对或已超重排上限
-    Requeue --> Fetching: 追加到队尾
-    Showing --> Paused: 中断/退后台
-    Paused --> Showing: 恢复（读取快照）
-    Fetching --> Done: 队列为空
+    Idle --> Fetching: SessionStarted（新会话/恢复快照）
+    Fetching --> Showing: CardFetched（队列非空）
+    Fetching --> Done: SessionFinished（队列为空）
+    Showing --> Rating: CardRated
+    Rating --> Requeue: RatingCommitted（Again 且 requeue_left > 0）
+    Rating --> Fetching: RatingCommitted（非 Again 或重排超限）
+    Requeue --> Fetching: CardFetched（重排已追加到队尾）
+    Showing --> Paused: SessionInterrupted
+    Rating --> Paused: SessionInterrupted
+    Requeue --> Paused: SessionInterrupted
+    Fetching --> Paused: SessionInterrupted
+    Paused --> Showing: SessionResumed（剩余队列非空）
+    Paused --> Fetching: SessionResumed（剩余队列为空）
     Done --> [*]
 ```
 
-关键实现要求：
+事件推进（实现 `DefaultSessionStateMachine`，纯逻辑，不读写数据库、不执行 FSRS 计算、不生成随机）：
 
-- 会话以 `session_id` 持久化：`sessions` 表存会话类型/进度，`session_items` 存队列与重排计数；每完成一张卡更新一次（事务内）。
-- 中断恢复时按原队列继续，**已答过的卡不重复**（重排卡除外）。
-- 全部完成后删除快照，写 `daily_stats`，进入任务完成页。
+- `SessionStarted`：进入会话；新会话携带 `sessionId + sessionType + initialWordIds`，恢复会话携带 `SessionSnapshot`，据此全量重建队列。
+- `CardFetched`：从 `Requeue` 进入 `Fetching`（仅推进阶段，重排追加已在 `RatingCommitted` 完成）；从 `Fetching` 取下一张卡进入 `Showing`。
+- `CardRated`：用户作答，携带 FSRS `Rating`（Again=1/Hard=2/Good=3/Easy=4）。状态机只记录"是否重排"；FSRS 调度与落库由调用方在事件外完成。
+- `RatingCommitted`：调用方完成评分处理（FSRS + 写库）后触发；`Again 且 requeue_left > 0` → 移除队首、把该词追加到队尾、`requeue_left - 1`、进入 `Requeue`；否则仅移除队首、进入 `Fetching`。**Hard/Good/Easy 一律不重排。**
+- `SessionInterrupted`：可从 Fetching/Showing/Rating/Requeue 任意活动阶段进入 `Paused` 并产出快照。
+- `SessionResumed`：按快照重建队列；剩余队列非空 → `Showing`（队首卡），为空 → `Fetching`（等待 `SessionFinished`）。
+- `SessionFinished`：仅允许在 `Fetching` 且队列为空时触发，进入 `Done` 并清空快照。
+
+重排规则（§5.2/§5.3 口径确认，2026-08-12 实现时明确）：
+
+- 重排判定 = **Again（评分 1）且该词剩余重排次数 > 0**；`requeue_left` 初始为 2（会话内最大重排次数，§18），每次重排减 1，减到 0 后再答错按答对推进（仅移除、不再入队），防止单次会话无限循环。
+- "回到队尾"即追加到剩余队列末尾；每个词在任意时刻至多有一个待展示 occurrence，`session_items` 按 `(session_id, word_id)` 一行一卡成立（§8.1）。
+
+快照与恢复语义（TD-07 口径确认，2026-08-12 实现时明确）：
+
+- `SessionSnapshot.items` 只含**剩余队列**（已答卡不重复，重排卡除外），按 `seq` 升序排列；`seq` 为剩余队列内 0 起连续下标。
+- `SessionSnapshot.position` = **已消费卡数**（本次会话已作答并离开队列的卡数），即 `sessions.position` 的进度语义；恢复时仅作进度恢复，下一张卡恒为剩余队列队首。
+- 中断在 `Showing`：当前卡尚未消费，快照含队首卡，恢复后重新展示同一张卡。
+- 中断在 `Rating`：作答未提交（`RatingCommitted` 未触发），当前卡视为未消费，恢复后重新作答。
+- 中断在 `Requeue`：重排已生效，快照含追加到队尾的重排卡（`requeue_left` 已减一），恢复后先展示队首的下一张卡。
+- 会话进入 `Done` 后 `snapshot` 置空；快照持久化与删除由调用方负责，状态机不写数据库。全部完成后由调用方写 `daily_stats` 并进入任务完成页。
+
+#### 快照持久化（TD-07 落库口径，2026-08-12 确认）
+
+- 契约：`lib/domain/services/session_repository.dart`（纯接口，不依赖 data/Flutter），
+  实现 `lib/data/repositories/drift_session_repository.dart`（注入 `AppDatabase`）。
+  调用方为今日任务页（§5.1 第 4 点"存在未完成会话"提示）与会话页（中断落库、启动恢复）；
+  UI 不直接读写两表（AGENTS §3.2）。
+- 保存（`save`）：`sessions` 一行 + `session_items` **全量替换**，在**同一个数据库事务**
+  内完成（§8.2 单写连接 + 批量事务）。全量替换的原因：快照是剩余队列的唯一编码（TD-07），
+  逐行 diff 无收益且易残留旧行；同事务的原因：两表必须同时可见或同时不可见，
+  部分写入会制造"缺 sessions 行的 session_items"或旧 items 残留式损坏。
+- 删除（`delete`）：`sessions` 与 `session_items` 两表**同事务**清理，会话进入 Done 后调用，
+  保证不留下孤儿行。
+- 加载（`load`/`loadAll`）：按 `seq` 升序读取 `session_items`，组装为 `SessionSnapshot`
+  （`session_type` 用 `SessionType.storageValue` 映射），可直接交给状态机
+  `SessionStarted.resume`；`loadAll` 返回全部未完成会话，供今日任务页枚举。
+- 损坏/非法快照口径：`load`/`loadAll` **校验并抛出明确错误（`StateError`，含 sessionId 与
+  原因），不静默丢弃、不自动修复**，与状态机 `_restoreFromSnapshot` 拒绝非法输入的口径一致。
+  校验项：存在 `session_items` 但缺少 `sessions` 行（孤儿行）、`seq` 不连续、
+  `position`/`requeueLeft`/`wordId` 为负、未知 `session_type`。仅当整个 sessionId
+  不存在任何行时 `load` 返回 null；`session_items` 为空视为合法快照（队列已清空但未完成，
+  等待 `SessionFinished`）。
+- 时间戳语义：首次插入 `created_at`/`updated_at` 均填当前时间；覆盖保存（同 sessionId
+  再次 `save`）保留 `created_at`、刷新 `updated_at`，单位为 epoch 毫秒（§7.5）。
+  `word_id` 唯一性由 `(session_id, word_id)` 主键保证（§8.1）。
+
+#### 会话驱动（SessionDriver）契约（2026-08-12 会话驱动落地时新增）
+
+- 职责与位置：`lib/domain/sessions/session_driver.dart`，纯逻辑（不依赖
+  data/Flutter，AGENTS §3.2），注入 `SessionStateMachine` + `FsrsScheduler` +
+  `UserWordRepository` / `ReviewLogRepository` / `SessionRepository` /
+  `StatsRepository` 接口。驱动**不修改状态机与 FSRS 引擎的任何行为**，其语义以
+  既有单测为准；UI 通过驱动访问会话，不直接操作状态机。
+  **驱动实例与一次会话一一对应**：状态机进入 Done 后不可再次
+  `SessionStarted`（`_start` 仅允许从 Idle 发起），UI 每场会话（学习/复习）
+  新建一个驱动实例。
+- 事件映射：
+  - `startNewSession`（新会话）→ `SessionStarted.fresh`；
+    `resumeSession`（恢复快照，快照由调用方先经 `SessionRepository.load`
+    取得）→ `SessionStarted.resume`；
+  - `fetchCard` → 把 `CardFetched`（Requeue→Fetching 与 Fetching→Showing 两次
+    事件）折叠为一次取卡，返回当前展示词；仅允许在 Requeue/Fetching 阶段调用；
+  - `rate(rating)` → `CardRated` → 驱动完成 FSRS 调度与落库（user_words +
+    review_logs）→ `RatingCommitted`（§5.4"拆分为独立事件的原因"：状态机不在
+    评分时立即消费卡片，调度与持久化由驱动在两次事件之间完成）；
+  - `interrupt` → `SessionInterrupted` → `SessionRepository.save`（同事务，
+    §5.4 快照持久化）；
+  - `finish` → `SessionFinished` → `SessionRepository.delete` +
+    `StatsRepository` 合并写 daily_stats（全部完成后由调用方写 daily_stats，
+    §5.4）。
+- 落库时序与失败口径（§5.2"写库失败不影响队列推进"的驱动实现）：
+  每次评分立即写 user_words 与 review_logs；两个写操作各自失败重试 1 次，
+  重试后仍失败则通过注入的日志回调记录并**继续推进队列**（仍触发
+  `RatingCommitted`），`rate` 返回 `persistFailures` 计数供 UI 提示。已知后果：
+  该次评分的 user_words/review_logs 可能缺失（或部分成功），调度正确性以
+  user_words 为准（§7.2 镜像字段不参与算法计算），日志缺失仅影响导出与调参
+  （T-06/§7.4）；已消费卡在本会话内不再出现，缺失的评分由该词按旧状态下次
+  到期重新调度兜底，不破坏学习闭环；快照（TD-07）保证队列推进可恢复。
+- 中断/恢复/完成时序：
+  - `interrupt`：快照保存失败**向上抛出**（区别于评分写库的"记录日志继续"），
+    因为快照是恢复的唯一依据（TD-07），静默丢弃违反 T-05；
+    已处于 Paused（保存失败后重试）时跳过状态机事件、直接重存快照，
+    使中断保存可幂等重试；
+  - `finish`：先校验队列为空并触发 `SessionFinished`（完成数据在触发前捕获，
+    因状态机进入 Done 后清空 position 等元数据），再删除快照（幂等），最后
+    合并写 daily_stats；任一持久化失败向上抛出，驱动保留本次会话的完成数据，
+    调用方可重试 `finish`——快照删除幂等、daily_stats 先读后合并写，重试不会
+    重复计数；
+  - 恢复会话的 `wordbookId` 由调用方提供：sessions 表无 wordbook_id（§8.1），
+    TD-07 快照不含词书信息；今日任务页持有当前词书上下文，恢复时一并传入。
+- daily_stats 写入方式：`finish` 按会话类型累加——learning →
+  `new_count += 已消费卡数`；review → `review_count += 已消费卡数`、
+  `correct_count += 评分 ≥ 3 的次数`（§6.4）。先 `getByDay` 读当日，合并后
+  `upsert`，避免覆盖同日其他会话的计数；`completed` 打卡标记由任务完成页在
+  整日任务完成后写入，驱动不置位。
+- 字段口径（2026-08-12 会话驱动实现时明确）：
+  - `user_words.status` 派生：state=review 且 `scheduled_days ≥ 21` →
+    mature（Anki 口径的"间隔足够长"阈值，PRD §4"掌握"定义），state=review →
+    review，其余（new/learning/relearning）→ learning；
+  - `user_words` 无 step 列（§8.1），当前单步学习/重学配置（TD-05）下
+    learning/relearning 的 step 恒为 0，恢复后按 0 处理不影响调度；若未来启用
+    多步学习步骤，需先同步 §8.1 加列、迁移脚本并与用户确认。
+
+### 5.5 任务完成页与打卡判定（2026-08-12 TD-07 收口时新增）
+
+- 会话 finish 后进入任务完成页：页面读取当日 `daily_stats`（含本场会话由
+  `SessionDriver.finish` 累加的计数）与重算的今日计划，展示今日累计进度。
+- **整日任务完成判定（产品口径，与 PRD §5 任务完成页对齐）**：
+  `daily_stats.new_count ≥ 今日计划 new_word_count` **且**
+  `daily_stats.review_count ≥ 今日计划 review_count`；
+  被复习软上限顺延的词（未进入计划队列、保持原 due_date，§6.1）**不阻塞打卡**。
+  实现为纯逻辑 `DailyCheckinCalculator.isTodayComplete(plan, stats)`
+  （`lib/domain/services/daily_checkin_calculator.dart`），可单测。
+- 判定满足时置 `daily_stats.completed = 1`（打卡，用于连续打卡天数，§6.4），
+  并展示“明日预告 + 鼓励文案”（PRD §5）；不满足时不置位，展示进度差并引导
+  继续（回到今日页）。`completed` 置位由任务完成页负责，`SessionDriver` 不置位
+  （§5.4 驱动契约）。
+- 口径说明：复习计数含会话内重排的重复出现（驱动按已消费卡数累加，§5.4），
+  因此“完成整场计划队列”后必然满足 `review_count ≥ 计划 review_count`；
+  顺延词因重算计划时仍到期但未进入队列（数量 ≤ 软上限），同样不阻塞判定。
 
 ---
 
@@ -230,6 +411,14 @@ stateDiagram-v2
 顺延     = len(复习队列) - 复习数           // 保持原 due_date，次日自然排在最前
 ```
 
+实现为纯逻辑，不读写数据库：`dailyGoal`、词书剩余新词数、到期词列表
+（`due_date <= 今日结束`，由仓储查询）、`reviewCap` 与"今日零点"（见 6.2）
+均由调用方（今日任务页 → 仓储）传入。契约见
+`lib/domain/services/daily_plan_calculator.dart`（实现：
+`lib/domain/services/default_daily_plan_calculator.dart`），结果 `DailyPlan`
+（`lib/domain/models/daily_plan.dart`）包含 `newWordCount`、`reviewQueue`
+（已排序并截断）、`reviewCount` 与 `deferredCount`。
+
 ### 6.2 复习队列排序（逾期严重度）
 
 定义 `overdueDays = floor((今日零点 - due_date) / 1天)`，排序键：
@@ -239,6 +428,18 @@ stateDiagram-v2
 3. 三键：`word_id` 升序（确定性，便于测试）。
 
 超出软上限的词**不修改 due_date**，次日自动排在最前，实现"按逾期严重程度顺延"且无惩罚语义（补卡机制，PRD §6 F2）。
+
+> 口径说明（2026-08-12 实现时确认）：
+> - "今日零点"（`todayStart`）由调用方按调度时区（§18，默认 Asia/Shanghai）
+>   换算为当日 00:00:00 后传入构建器；构建器只做纯算术，不感知时区。
+> - `overdueDays` 按天向下取整：正值 = 已逾期天数；`0` = 昨日到期（未满 1 天）
+>   或恰为今日零点到期；`-1` = 今日零点之后到期（尚未逾期）。同日到期归入同一桶，
+>   桶内按次键/三键排序。
+> - 到期词列表须已按 `due_date <= 今日结束` 过滤（仓储契约
+>   `UserWordRepository.getDueWords`）；`due_date` 为空的词不进入该列表，
+>   构建器兜底按今日到期处理。
+> - 契约：`lib/domain/scheduling/review_queue_builder.dart`；实现：
+>   `lib/domain/scheduling/default_review_queue_builder.dart`。
 
 ### 6.3 高考倒计时模式（M3）
 
@@ -269,37 +470,55 @@ suggestedNew    = ceil(剩余新词数 / daysLeft)
 | 字段 | 含义 |
 |---|---|
 | `state` | New / Learning / Review / Relearning |
+| `step` | 学习/重学步骤下标（0 起；Learning/Relearning 时非空，Review 时为 null），对应官方实现 `Card.step` |
 | `stability (S)` | 记忆稳定性（间隔的数学期望） |
 | `difficulty (D)` | 词条难度因子（0–10） |
 | `due_date` | 下次到期时间 |
 | `reps` | 复习次数 |
 | `lapses` | 遗忘次数 |
 | `last_review_at` | 上次复习时间 |
-| `elapsed_days` | 距上次复习天数 |
-| `scheduled_days` | 上次安排的间隔 |
+| `elapsed_days` | 距上次复习天数（user_words 镜像字段；评分时计算，首次评分为空） |
+| `scheduled_days` | 上次安排的间隔（user_words 镜像字段；本次评分后更新） |
+
+> 说明：`reps`/`lapses` 计数器官方 py-fsrs 不维护，属本项目按 Anki 口径的本地扩展：每次评分 `reps + 1`；Review 状态评 Again（进入遗忘）时 `lapses + 1`。调度计算以 `last_review_at` 推导 elapsed_days，不读取镜像字段，保持"算法层不读数据库"。
 
 ### 7.3 评分映射
 
 | UI 操作 | 内部评分 | 新词（Learning） | 复习词（Review） |
 |---|---|---|---|
 | 不认识 | Again (1) | 留在 Learning，due = +10 分钟 | 进入 Relearning，due = +10 分钟 |
-| 模糊 | Hard (2) | 毕业为 Review，间隔由 FSRS 给出（约 1 天） | 正常更新 S/D，间隔缩短 |
-| 认识 | Good (3) | 毕业为 Review，间隔由 FSRS 给出（约 3–7 天） | 正常推进间隔 |
-| 认识（长按/高级） | Easy (4) | 跳过学习步骤直接长间隔 | 大幅推进间隔 |
+| 模糊 | Hard (2) | 留在 Learning，due = +15 分钟（单步 [10m] 的 1.5 倍，官方学习步骤语义） | 正常更新 S/D，间隔缩短 |
+| 认识 | Good (3) | 毕业为 Review，间隔由 FSRS 给出（约 3 天） | 正常推进间隔 |
+| 认识（长按/高级） | Easy (4) | 跳过学习步骤直接毕业，间隔约 16 天 | 大幅推进间隔 |
 
 学习步骤配置：`learning_steps = [10m]`，`relearning_steps = [10m]`；目标记忆保持率（desired retention）默认 **0.9**，可在算法参数配置中调整。
+
+> 注（2026-08-12 FSRS 移植时校准）：毕业（Learning/Relearning → Review）仅由 Good（最后一步）或 Easy 触发；Again 重置步骤、Hard 保持步骤不变，二者均停留在 Learning/Relearning，不进入复习队列。这与 PRD F3"模糊和不认识进入复习队列"的产品表述不一致，实现以官方 FSRS-5 语义为准，PRD 表述待产品确认（差异详见汇报）。
 
 ### 7.4 调度规则
 
 - 每次评分后调用 FSRS 状态转移：更新 S、D、due_date、reps、lapses，写 `review_logs`（含当时的 S/D/间隔，供导出与调参）。
 - 复习日期由算法输出；今日队列由"逾期严重度"排序（第 6.2 节）。
 - 参数首次使用官方默认值（FSRS-5 默认参数表），上线后可用本地 `review_logs` 做参数优化（重跑训练脚本，M3 可选）。
+- 移植基准：官方 Python 参考实现 **py-fsrs v5.1.3**（FSRS-5 最终版本，19 参数模型）。fsrs4anki v6 的 21 参数扩展（w[19]/w[20] 与 toFixed(2) 取整）本次未采用，差异详见汇报。
+- **fuzz 默认关闭**（`enableFuzzing = false`）：官方默认开启随机微扰，本项目为调度确定性与测试可复现性默认关闭；引擎保留官方 fuzz 区间算法，后续可按需开启。
+- 间隔计算使用 Python `round()`（银行家舍入）语义；复习间隔取整日，学习/重学步骤按分钟计。
 
 ### 7.5 正确性保障
 
-1. 移植后跑通官方测试用例的数值断言（精度 1e-6 内一致）。
+1. 移植后跑通官方 golden 用例：官方 py-fsrs v5.1.3 测试序列的 S/D/间隔/retrievability 断言，参考值由官方实现全精度生成，断言容差 1e-6。
 2. 时间全部以 `DateTime` 存储 epoch 毫秒，调度计算使用"本地日边界"（Asia/Shanghai 时区优先，设置内可改）。
 3. 算法层不读数据库，输入为"词状态 + 评分 + 当前时间"，输出为"新状态 + 日志"，可整层单元测试。
+
+### 7.6 领域接口映射（骨架调整记录，2026-08-12）
+
+| 骨架接口 | 调整 | 原因 |
+|---|---|---|
+| `CardState` | 新增 `step`（int?） | 对应官方 `Card.step`，学习/重学步骤推进是官方状态机的一部分 |
+| `SchedulingState` | 改为承载完整更新后的 `CardState` + `intervalDays` + `retrievability` | 对齐官方 `review_card` 返回的 (Card, ReviewLog) 数据，便于直接持久化 `user_words` |
+| `FsrsParameters` | 新增 `weights`（官方 19 参数默认表）、`maximumIntervalDays`（36500）、`enableFuzzing`（默认 false） | TECH_DOC §7.4 所需参数项 |
+
+引擎实现位置：`domain/scheduling/fsrs/fsrs_engine.dart`（状态转移）、`fsrs_formulas.dart`（纯公式）、`fsrs_defaults.dart`（官方默认参数与常量）。
 
 ---
 
@@ -384,18 +603,21 @@ CREATE TABLE sessions (
   session_type TEXT NOT NULL,                -- learning / review
   created_at   INTEGER NOT NULL,
   updated_at   INTEGER NOT NULL,
-  position     INTEGER NOT NULL DEFAULT 0
+  position     INTEGER NOT NULL DEFAULT 0    -- 已消费卡数（进度，§5.4）
 );
 
 CREATE TABLE session_items (
   session_id   TEXT NOT NULL,
   word_id      INTEGER NOT NULL,
-  seq          INTEGER NOT NULL,             -- 当前队列顺序
+  seq          INTEGER NOT NULL,             -- 剩余队列顺序（0 起连续，§5.4）
   requeue_left INTEGER NOT NULL DEFAULT 0,   -- 该词剩余重排次数
   PRIMARY KEY (session_id, word_id)
 );
 
--- 设置（每日目标、软上限、发音、语言、提醒、题型开关、考试日期）
+> 快照持久化行为（保存/删除事务语义、损坏数据处理口径、时间戳语义）见
+> §5.4"快照持久化"小节。
+
+-- 设置（每日目标、软上限、发音、语言、提醒、题型开关、考试日期、首启标记）
 CREATE TABLE settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -440,6 +662,16 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 - 默认乱序（避免首字母聚类干扰记忆）；
 - 进度稳定，不会因重启/换天导致顺序漂移；
 - 考前突击时可切换"按词表顺序"。
+
+> TD-07 收口时明确（WordbookRepository 契约）：
+> - `getWordsByBook(bookId, {limit, offset})` 返回词书内**尚未学习**的词
+>   （无 `user_words` 行且 `is_skipped = 0`），按“频段（high→medium→low）、
+>   shuffled 递增”排序；`offset/limit` 作用于过滤后的新词序列，供学习会话
+>   按计划取词。
+> - `countRemainingNewWords(bookId)` 以同一过滤口径计数，供今日页
+>   “词书剩余新词”展示与计划计算（§5.1/§6.1）。
+> - `getWordsByIds(ids)` 批量按 ID 取词（返回顺序与入参一致），供会话页
+>   卡片展示（复习队列词已学习、不在 `getWordsByBook` 结果内）。
 
 ---
 
@@ -582,6 +814,14 @@ flowchart LR
 - 离线场景：飞行模式下完成全部核心流程；
 - 词库版本升级迁移测试（v1→v2 数据不丢）。
 
+> TD-07 阶段实现口径：全流程与中断恢复的自动化验证以“驱动 + 仓储级集成测试”
+> （真实 `AppDatabase.forTesting` + `NativeDatabase` 临时文件，见
+> `test/integration/`）与页面 Widget 测试覆盖；Onboarding 首启
+> （首启 → 设置落库 → 直达今日页；再启直达）由 Widget 测试补充
+> （`test/widget/onboarding_widget_test.dart`，v1.2 起），
+> 学习/复习全流程测试从今日任务页入口开始。UI 级点击链路
+> （今日页 → 会话页 → 完成页）由 Widget 测试补充。
+
 ### 14.3 CI 与发布
 
 - GitHub Actions：`flutter analyze` + `flutter test` + `integration_test`（Android 模拟器）+ 构建 release APK；
@@ -648,3 +888,4 @@ flowchart LR
 | 离线包预估 | 50–100 MB / 3500 词 | PRD F5 |
 | 例句筛选 | 句长 ≤ 18 词、高中词汇范围 | PRD §7.2 |
 | 时区 | Asia/Shanghai（可设置） | 调度日边界 |
+| 首次启动引导（onboarding_done） | false（完成 Onboarding 后置 true） | 首启路由判定（§5.1），键名 `onboarding_done` |

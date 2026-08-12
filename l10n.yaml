@@ -1,0 +1,7 @@
+# 国际化装配：ARB 与生成物均位于 lib/app/l10n。
+# 说明：Flutter 3.44 起不再生成 synthetic package，生成物默认写入 ARB 目录，
+# 因此 app_localizations*.dart 随源码提交，便于离线构建与静态分析。
+arb-dir: lib/app/l10n
+template-arb-file: app_en.arb
+output-class: AppLocalizations
+nullable-getter: false
