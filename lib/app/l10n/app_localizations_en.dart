@@ -12,6 +12,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Wo Ai Bei Dan Ci';
 
   @override
+  String get onboardingTitle => 'Get started';
+
+  @override
+  String get onboardingWordbookLabel => 'Choose your wordbook';
+
+  @override
+  String get onboardingDailyGoalLabel => 'Daily new words goal (words/day)';
+
+  @override
+  String get onboardingStart => 'Start';
+
+  @override
+  String get onboardingNoWordbook =>
+      'No wordbook available (content pack not installed)';
+
+  @override
+  String onboardingLoadFailed(String error) {
+    return 'Failed to initialize: $error';
+  }
+
+  @override
+  String onboardingSaveFailed(String error) {
+    return 'Failed to save settings: $error';
+  }
+
+  @override
   String get homeSkeletonReady => 'Project skeleton is ready.';
 
   @override

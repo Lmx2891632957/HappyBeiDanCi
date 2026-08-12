@@ -12,6 +12,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => '我爱背单词';
 
   @override
+  String get onboardingTitle => '开始使用';
+
+  @override
+  String get onboardingWordbookLabel => '选择词书';
+
+  @override
+  String get onboardingDailyGoalLabel => '每日新词目标（词/天）';
+
+  @override
+  String get onboardingStart => '开始';
+
+  @override
+  String get onboardingNoWordbook => '暂无可用词书（词库包未安装）';
+
+  @override
+  String onboardingLoadFailed(String error) {
+    return '初始化失败：$error';
+  }
+
+  @override
+  String onboardingSaveFailed(String error) {
+    return '保存设置失败：$error';
+  }
+
+  @override
   String get homeSkeletonReady => '工程骨架已就绪。';
 
   @override

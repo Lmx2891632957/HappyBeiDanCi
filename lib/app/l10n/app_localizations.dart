@@ -104,6 +104,48 @@ abstract class AppLocalizations {
   /// **'Wo Ai Bei Dan Ci'**
   String get appTitle;
 
+  /// 首次启动引导页标题
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onboardingTitle;
+
+  /// 首次启动引导页：选择词书
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your wordbook'**
+  String get onboardingWordbookLabel;
+
+  /// 首次启动引导页：每日新词目标
+  ///
+  /// In en, this message translates to:
+  /// **'Daily new words goal (words/day)'**
+  String get onboardingDailyGoalLabel;
+
+  /// 首次启动引导页：开始按钮
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get onboardingStart;
+
+  /// 词库包未安装时的引导页提示
+  ///
+  /// In en, this message translates to:
+  /// **'No wordbook available (content pack not installed)'**
+  String get onboardingNoWordbook;
+
+  /// 首次启动初始化失败
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to initialize: {error}'**
+  String onboardingLoadFailed(String error);
+
+  /// 引导页保存设置失败
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save settings: {error}'**
+  String onboardingSaveFailed(String error);
+
   /// 首页占位提示：工程骨架已就绪
   ///
   /// In en, this message translates to:

@@ -39,6 +39,14 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => DriftSettingsRepository(ref.watch(databaseProvider)),
 );
 
+/// 首启门卫（TECH_DOC §5.1）：读取设置中的 `onboarding_done`，供 Splash
+/// 首帧路由判定（未完成 → /onboarding，已完成 → /）。独立 provider 便于
+/// Widget 测试覆盖与加载失败重试；读取为异步，Splash 兜住等待期（§12）。
+final onboardingGateProvider = FutureProvider<bool>((ref) async {
+  final settings = await ref.watch(settingsRepositoryProvider).load();
+  return settings.onboardingDone;
+});
+
 final userWordRepositoryProvider = Provider<UserWordRepository>(
   (ref) => DriftUserWordRepository(ref.watch(databaseProvider)),
 );
@@ -115,11 +123,7 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
     return TodayPlan(
       settings: settings,
       wordbook: null,
-      plan: const DailyPlan(
-        newWordCount: 0,
-        reviewQueue: [],
-        deferredCount: 0,
-      ),
+      plan: const DailyPlan(newWordCount: 0, reviewQueue: [], deferredCount: 0),
       remainingNewWords: 0,
     );
   }
@@ -129,17 +133,19 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
   final now = DateTime.now();
   final todayStart = TimeUtils.todayStart(now, timezone: settings.timezone);
   final todayEnd = TimeUtils.todayEnd(now, timezone: settings.timezone);
-  final dueWords = await ref.watch(userWordRepositoryProvider).getDueWords(
-    todayEnd: todayEnd,
-  );
+  final dueWords = await ref
+      .watch(userWordRepositoryProvider)
+      .getDueWords(todayEnd: todayEnd);
   final dueForBook = dueWords.where((w) => w.wordbookId == book.id).toList();
-  final plan = ref.watch(dailyPlanCalculatorProvider).calculate(
-    dailyGoal: settings.dailyNewWords,
-    remainingNewWords: remainingNew,
-    dueWords: dueForBook,
-    cap: settings.reviewCap,
-    todayStart: todayStart,
-  );
+  final plan = ref
+      .watch(dailyPlanCalculatorProvider)
+      .calculate(
+        dailyGoal: settings.dailyNewWords,
+        remainingNewWords: remainingNew,
+        dueWords: dueForBook,
+        cap: settings.reviewCap,
+        todayStart: todayStart,
+      );
   return TodayPlan(
     settings: settings,
     wordbook: book,
@@ -151,6 +157,7 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
 /// 未完成会话快照（TECH_DOC §5.1 第 4 点）：loadAll 按 updated_at 降序，
 /// 今日页取最近一个展示"继续上次未完成的学习"入口；会话页中断/完成后会
 /// `invalidate` 本 provider，保证返回今日页时快照列表是最新的。
-final unfinishedSessionsProvider = FutureProvider.autoDispose<
-  List<SessionSnapshot>
->((ref) => ref.watch(sessionRepositoryProvider).loadAll());
+final unfinishedSessionsProvider =
+    FutureProvider.autoDispose<List<SessionSnapshot>>(
+      (ref) => ref.watch(sessionRepositoryProvider).loadAll(),
+    );

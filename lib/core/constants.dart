@@ -12,6 +12,9 @@ abstract final class AppConstants {
   /// 每日新词数默认值（PRD F2，可选 10/20/30/50）。
   static const int defaultDailyNewWords = 20;
 
+  /// 每日新词目标可选值（PRD F2）。
+  static const List<int> dailyGoalOptions = [10, 20, 30, 50];
+
   /// 复习软上限默认值（PRD F2，可调整/关闭；关闭时上层传 null）。
   static const int defaultReviewCap = 300;
 

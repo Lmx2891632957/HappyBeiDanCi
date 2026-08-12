@@ -4,6 +4,44 @@
   "@appTitle": {
     "description": "应用显示名称（英文界面文案）"
   },
+  "onboardingTitle": "Get started",
+  "@onboardingTitle": {
+    "description": "首次启动引导页标题"
+  },
+  "onboardingWordbookLabel": "Choose your wordbook",
+  "@onboardingWordbookLabel": {
+    "description": "首次启动引导页：选择词书"
+  },
+  "onboardingDailyGoalLabel": "Daily new words goal (words/day)",
+  "@onboardingDailyGoalLabel": {
+    "description": "首次启动引导页：每日新词目标"
+  },
+  "onboardingStart": "Start",
+  "@onboardingStart": {
+    "description": "首次启动引导页：开始按钮"
+  },
+  "onboardingNoWordbook": "No wordbook available (content pack not installed)",
+  "@onboardingNoWordbook": {
+    "description": "词库包未安装时的引导页提示"
+  },
+  "onboardingLoadFailed": "Failed to initialize: {error}",
+  "@onboardingLoadFailed": {
+    "description": "首次启动初始化失败",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSaveFailed": "Failed to save settings: {error}",
+  "@onboardingSaveFailed": {
+    "description": "引导页保存设置失败",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "homeSkeletonReady": "Project skeleton is ready.",
   "@homeSkeletonReady": {
     "description": "首页占位提示：工程骨架已就绪"
