@@ -33,6 +33,8 @@ build/
 
 # 词库/音频发布产物（AGENTS.md §5.3：不进源码仓库）
 tools/content_pipeline/output/
+tools/content_pipeline/raw/
+tools/content_pipeline/work/
 *.db
 *.sqlite
 *.zip
