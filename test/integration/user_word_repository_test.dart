@@ -120,6 +120,27 @@ void main() {
     expect(await repo.getWord(userId: 0, wordbookId: 1, wordId: 99), isNull);
   });
 
+  test('getAll：全量返回并按 wordbook_id/word_id 稳定排序（数据导出，§8.2）', () async {
+    final (_, repo) = openRepo('get_all');
+    for (final (bookId, wordId) in const [(2, 3), (1, 2), (1, 1), (2, 1)]) {
+      await repo.upsert(
+        UserWord(
+          userId: 0,
+          wordbookId: bookId,
+          wordId: wordId,
+          state: WordLearningState.learning,
+          status: WordStatus.learning,
+        ),
+      );
+    }
+    final all = await repo.getAll();
+    expect(all, hasLength(4));
+    expect(
+      [for (final w in all) (w.wordbookId, w.wordId)],
+      [(1, 1), (1, 2), (2, 1), (2, 3)],
+    );
+  });
+
   test('getDueWords：按 due_date≤todayEnd 过滤、limit 生效、空 due_date 不入列', () async {
     final (_, repo) = openRepo('due');
     final todayEnd = DateTime(2026, 8, 12, 23, 59, 59, 999);
