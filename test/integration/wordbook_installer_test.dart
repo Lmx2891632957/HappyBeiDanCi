@@ -1,0 +1,234 @@
+/// 词库首装服务集成测试（TECH_DOC §8.2 首装流程）：
+/// manifest 拉取 → DB 下载 → SHA-256 校验 → 导入落版本键；幂等、校验失败
+/// 清理半包、坏 manifest 拒绝。
+library;
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:happy_bei_dan_ci/data/local/app_database.dart';
+import 'package:happy_bei_dan_ci/data/repositories/drift_settings_repository.dart';
+import 'package:happy_bei_dan_ci/data/sources/wordbook_installer.dart';
+import 'package:happy_bei_dan_ci/data/sources/wordbook_importer.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
+
+import '../helpers/fixture.dart';
+
+void main() {
+  late Directory tempDir;
+  late AppDatabase db;
+  late Directory downloadDir;
+  late Directory backupDir;
+  late HttpClient httpClient;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('happy_beidanci_installer');
+    db = openTestDb(tempDir, 'install');
+    downloadDir = Directory('${tempDir.path}/wordbooks');
+    backupDir = Directory('${tempDir.path}/backups');
+    httpClient = HttpClient();
+  });
+
+  tearDown(() async {
+    httpClient.close(force: true);
+    await db.close();
+    if (tempDir.existsSync()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  /// 构造单词发布版 DB（meta + 1 词，与管线打包 schema 一致）。
+  File writePackFile({String version = '1.0', String word = 'apple'}) {
+    final file = File('${tempDir.path}/pack_$version.db');
+    final pack = sqlite.sqlite3.open(file.path);
+    try {
+      pack.execute('''
+        CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE wordbooks (
+          id INTEGER PRIMARY KEY, name TEXT NOT NULL, level TEXT NOT NULL,
+          total_count INTEGER NOT NULL, source TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
+        );
+        CREATE TABLE words (
+          id INTEGER PRIMARY KEY, word TEXT NOT NULL UNIQUE, phonetic TEXT NOT NULL,
+          phonetic_uk TEXT, meanings TEXT NOT NULL, examples TEXT NOT NULL,
+          frequency TEXT NOT NULL, root_affix TEXT, audio_key TEXT NOT NULL,
+          audio_url TEXT, created_at INTEGER NOT NULL
+        );
+        CREATE TABLE wordbook_items (
+          wordbook_id INTEGER NOT NULL, word_id INTEGER NOT NULL,
+          seq INTEGER NOT NULL, shuffled INTEGER NOT NULL,
+          is_skipped INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (wordbook_id, word_id)
+        );
+      ''');
+      pack.execute(
+        "INSERT INTO meta (key, value) VALUES ('schema_version', '1')",
+      );
+      pack.execute(
+        'INSERT INTO meta (key, value) VALUES (?, ?)',
+        ['wordlist_version', version],
+      );
+      pack.execute(
+        'INSERT INTO wordbooks (id, name, level, total_count, source, '
+        'created_at) VALUES (1, ?, ?, 1, ?, 1)',
+        ['测试词书', 'gaokao', 'test-pack'],
+      );
+      pack.execute(
+        'INSERT INTO words (id, word, phonetic, meanings, examples, '
+        'frequency, audio_key, created_at) VALUES (1, ?, ?, ?, ?, ?, ?, 1)',
+        [
+          word,
+          '/$word/',
+          jsonEncode([
+            {'pos': 'n.', 'meaning': '释义$word'},
+          ]),
+          jsonEncode([
+            {'en': 'I read $word.', 'source': 'Tatoeba', 'attribution': 't'},
+          ]),
+          'high',
+          '000001',
+        ],
+      );
+      pack.execute(
+        'INSERT INTO wordbook_items (wordbook_id, word_id, seq, shuffled) '
+        'VALUES (1, 1, 0, 0)',
+      );
+    } finally {
+      pack.close();
+    }
+    return file;
+  }
+
+  /// 启动发布基址 HttpServer：manifest + 词库 DB。
+  Future<(HttpServer, Map<String, String>)> startServer({
+    required File pack,
+    Map<String, dynamic>? manifestOverride,
+  }) async {
+    final bytes = pack.readAsBytesSync();
+    final dbName = pack.uri.pathSegments.last;
+    final manifest = manifestOverride ??
+        {
+          'name': 'wordbook-gaokao-3500',
+          'version': '1.0',
+          'wordbook_id': 1,
+          'artifacts': {
+            'wordbook_db': {
+              'file': dbName,
+              'size': bytes.length,
+              'sha256': sha256.convert(bytes).toString(),
+            },
+          },
+        };
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      if (request.uri.path == '/manifest.json') {
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode(manifest));
+      } else {
+        request.response.add(bytes);
+      }
+      await request.response.close();
+    });
+    return (
+      server,
+      {'dbName': dbName},
+    );
+  }
+
+  WordbookInstaller installer(HttpServer server) => WordbookInstaller(
+    importer: WordbookImporter(
+      db,
+      backupWriter: _TempBackupWriter(backupDir),
+    ),
+    settingsRepository: DriftSettingsRepository(db),
+    httpClient: httpClient,
+    downloadDirectory: () async => downloadDir,
+    releaseBaseUri: () => Uri.parse('http://${server.address.host}:${server.port}/'),
+  );
+
+  test('首装：manifest → 下载校验 → 导入 → 版本键落库；再次调用幂等', () async {
+    final pack = writePackFile();
+    final (server, _) = await startServer(pack: pack);
+    addTearDown(server.close);
+    final inst = installer(server);
+
+    final version = await inst.ensureInstalled();
+    expect(version, '1.0');
+    final settings = await DriftSettingsRepository(db).load();
+    expect(settings.wordbookVersion, '1.0');
+    expect(await db.select(db.wordbooks).get(), hasLength(1));
+    expect(await db.select(db.words).get(), hasLength(1));
+
+    // 已装：幂等 no-op（不重新下载/导入）。
+    expect(await inst.ensureInstalled(), isNull);
+  });
+
+  test('SHA-256 不匹配：抛校验异常并删除半包，不落版本键', () async {
+    final pack = writePackFile();
+    final (server, _) = await startServer(
+      pack: pack,
+      manifestOverride: {
+        'name': 'wordbook-gaokao-3500',
+        'version': '1.0',
+        'wordbook_id': 1,
+        'artifacts': {
+          'wordbook_db': {
+            'file': pack.uri.pathSegments.last,
+            'size': 1,
+            'sha256': 'f' * 64,
+          },
+        },
+      },
+    );
+    addTearDown(server.close);
+
+    await expectLater(
+      installer(server).ensureInstalled(),
+      throwsA(
+        isA<WordbookInstallException>().having(
+          (e) => e.failure,
+          'failure',
+          WordbookInstallFailure.checksum,
+        ),
+      ),
+    );
+    expect(downloadDir.listSync(), isEmpty);
+    expect((await DriftSettingsRepository(db).load()).wordbookVersion, isNull);
+  });
+
+  test('坏 manifest（缺 wordbook_db）：拒绝安装', () async {
+    final pack = writePackFile();
+    final (server, _) = await startServer(
+      pack: pack,
+      manifestOverride: {'name': 'bad', 'version': '1.0', 'wordbook_id': 1},
+    );
+    addTearDown(server.close);
+
+    await expectLater(
+      installer(server).ensureInstalled(),
+      throwsA(
+        isA<WordbookInstallException>().having(
+          (e) => e.failure,
+          'failure',
+          WordbookInstallFailure.manifest,
+        ),
+      ),
+    );
+  });
+}
+
+/// 测试用备份写入器：写临时目录（生产实现写应用私有目录，TECH_DOC §8.2）。
+class _TempBackupWriter implements BackupWriter {
+  _TempBackupWriter(this.dir);
+
+  final Directory dir;
+
+  @override
+  Future<File> write({required String name, required String content}) async {
+    await dir.create(recursive: true);
+    return File('${dir.path}/$name').writeAsString(content);
+  }
+}
