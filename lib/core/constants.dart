@@ -36,6 +36,17 @@ abstract final class AppConstants {
   /// 每日提醒默认时间（HH:mm，PRD F6）。
   static const String defaultReminderTime = '20:00';
 
+  /// 界面语言默认值（PRD F7）：空串 = 跟随系统；选择后存 'zh' / 'en'。
+  static const String defaultLanguage = '';
+
+  /// 深色模式默认值（PRD F7；system / light / dark）。
+  static const String defaultThemeMode = 'system';
+
+  /// 每日提醒通知 ID 与频道名（flutter_local_notifications，TECH_DOC §11.1）。
+  static const int reminderNotificationId = 1000;
+  static const String reminderNotificationChannelId = 'daily_reminder';
+  static const String reminderNotificationChannelName = '每日提醒';
+
   /// 离线音频包发布仓库（TD-11 GitHub Releases；换对象存储只改本组常量，
   /// TECH_DOC §9.2/§18）。
   static const String githubRepoOwner = 'Lmx2891632957';
@@ -107,6 +118,12 @@ abstract final class AppSettingKeys {
   /// 蜂窝网络允许自动下载离线音频包（TECH_DOC §9.4，F5；'true'/'false'）。
   static const String audioDownloadOnCellular = 'audio_download_on_cellular';
 
+  /// 界面语言（'zh' / 'en'，PRD F7）。
+  static const String language = 'language';
+
+  /// 深色模式（'system' / 'light' / 'dark'，PRD F7）。
+  static const String themeMode = 'theme_mode';
+
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,
@@ -119,5 +136,7 @@ abstract final class AppSettingKeys {
     wordbookVersion,
     pronunciationEnabled,
     audioDownloadOnCellular,
+    language,
+    themeMode,
   ];
 }
