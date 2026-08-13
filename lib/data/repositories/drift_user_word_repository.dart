@@ -56,6 +56,16 @@ class DriftUserWordRepository implements UserWordRepository {
     return _db.into(_db.userWords).insertOnConflictUpdate(_toRow(word));
   }
 
+  @override
+  Future<List<UserWord>> getAll() {
+    final query = _db.select(_db.userWords)
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.wordbookId),
+        (t) => OrderingTerm(expression: t.wordId),
+      ]);
+    return query.get().then((rows) => [for (final row in rows) _toDomain(row)]);
+  }
+
   UserWordsCompanion _toRow(UserWord word) => UserWordsCompanion(
     userId: Value(word.userId),
     wordbookId: Value(word.wordbookId),
