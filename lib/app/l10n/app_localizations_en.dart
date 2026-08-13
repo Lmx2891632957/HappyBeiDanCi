@@ -161,6 +161,157 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pronunciation pack download';
 
   @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsGoalSection => 'Study goal';
+
+  @override
+  String get settingsDailyGoal => 'Daily new words';
+
+  @override
+  String get settingsReviewCap => 'Daily review cap';
+
+  @override
+  String get settingsReviewCapHint =>
+      'Overdue reviews above the cap are deferred to tomorrow';
+
+  @override
+  String get settingsReviewCapOff => 'Off';
+
+  @override
+  String get settingsPronunciationSection => 'Audio';
+
+  @override
+  String get settingsPronunciation => 'Pronunciation';
+
+  @override
+  String get settingsCellularDownload => 'Download audio on mobile data';
+
+  @override
+  String get settingsCellularDownloadHint =>
+      'Off by default to save data; downloads start on Wi-Fi';
+
+  @override
+  String get settingsReminderSection => 'Daily reminder';
+
+  @override
+  String get settingsReminder => 'Enable daily reminder';
+
+  @override
+  String get settingsReminderTime => 'Reminder time';
+
+  @override
+  String get settingsAppearanceSection => 'Appearance';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSystem => 'System';
+
+  @override
+  String get settingsDarkMode => 'Dark mode';
+
+  @override
+  String get settingsDarkSystem => 'System';
+
+  @override
+  String get settingsDarkLight => 'Light';
+
+  @override
+  String get settingsDarkDark => 'Dark';
+
+  @override
+  String get settingsDataSection => 'Data';
+
+  @override
+  String get settingsExportCsv => 'Export review logs & word progress (CSV)';
+
+  @override
+  String get settingsExportJson => 'Export review logs & word progress (JSON)';
+
+  @override
+  String get settingsExportSubject => 'My word-learning data';
+
+  @override
+  String settingsExportSuccess(int count) {
+    return 'Exported $count file(s)';
+  }
+
+  @override
+  String settingsExportFailed(String error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String settingsSaveFailed(String error) {
+    return 'Failed to save settings: $error';
+  }
+
+  @override
+  String get settingsAbout => 'About & data sources';
+
+  @override
+  String get settingsNotificationPermissionDenied =>
+      'Notifications are disabled. Enable them in system settings to get daily reminders.';
+
+  @override
+  String get settingsOpenSystemSettings => 'Open settings';
+
+  @override
+  String get reminderNotificationTitle => 'Time to review!';
+
+  @override
+  String get reminderNotificationBody =>
+      'Complete today\'s new words and reviews.';
+
+  @override
+  String get aboutTitle => 'About';
+
+  @override
+  String get aboutPrivacyNote =>
+      'This is a free learning tool. All study data stays on your device and is never uploaded.';
+
+  @override
+  String get aboutSourcesTitle => 'Data sources';
+
+  @override
+  String get aboutSourceGaokao =>
+      'Ministry of Education Gaokao English syllabus vocabulary';
+
+  @override
+  String get aboutSourceGaokaoDesc =>
+      'Word list scope; ECDICT gk tag used as the seed (no official machine-readable file)';
+
+  @override
+  String get aboutSourceEcdict => 'ECDICT (MIT)';
+
+  @override
+  String get aboutSourceEcdictDesc =>
+      'Meanings, parts of speech, fallback phonetics, word-frequency proxy';
+
+  @override
+  String get aboutSourceIpa => 'ipa-dict en_US (MIT, based on CMUdict)';
+
+  @override
+  String get aboutSourceIpaDesc => 'American IPA phonetics (primary source)';
+
+  @override
+  String get aboutSourceTatoeba => 'Tatoeba English sentences (CC BY 2.0 FR)';
+
+  @override
+  String get aboutSourceTatoebaDesc =>
+      'Example sentences; author attribution stored per word';
+
+  @override
+  String get aboutSourceTts => 'Microsoft Edge TTS (en-US-AriaNeural)';
+
+  @override
+  String get aboutSourceTtsDesc =>
+      'American pronunciation audio generated in bulk';
+
+  @override
   String get resultsTitle => 'Today\'s results';
 
   @override

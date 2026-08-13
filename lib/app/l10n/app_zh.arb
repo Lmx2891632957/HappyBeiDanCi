@@ -131,6 +131,72 @@
   "@audioDownloadNotificationChannelName": {
     "description": "离线发音包前台服务通知频道名"
   },
+  "settingsTitle": "设置",
+  "settingsGoalSection": "学习目标",
+  "settingsDailyGoal": "每日新词数",
+  "settingsReviewCap": "每日复习上限",
+  "settingsReviewCapHint": "超出上限的逾期复习自动顺延到次日",
+  "settingsReviewCapOff": "关闭",
+  "settingsPronunciationSection": "音频",
+  "settingsPronunciation": "单词发音",
+  "settingsCellularDownload": "蜂窝网络下载发音包",
+  "settingsCellularDownloadHint": "默认关闭以节省流量，Wi-Fi 下自动下载",
+  "settingsReminderSection": "每日提醒",
+  "settingsReminder": "开启每日提醒",
+  "settingsReminderTime": "提醒时间",
+  "settingsAppearanceSection": "外观",
+  "settingsLanguage": "界面语言",
+  "settingsLanguageSystem": "跟随系统",
+  "settingsDarkMode": "深色模式",
+  "settingsDarkSystem": "跟随系统",
+  "settingsDarkLight": "浅色",
+  "settingsDarkDark": "深色",
+  "settingsDataSection": "数据",
+  "settingsExportCsv": "导出复习记录与学习进度（CSV）",
+  "settingsExportJson": "导出复习记录与学习进度（JSON）",
+  "settingsExportSubject": "我的背单词数据",
+  "settingsExportSuccess": "已导出 {count} 个文件",
+  "@settingsExportSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsExportFailed": "导出失败：{error}",
+  "@settingsExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSaveFailed": "保存设置失败：{error}",
+  "@settingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAbout": "关于与数据来源",
+  "settingsNotificationPermissionDenied": "通知权限已关闭，请在系统设置中开启以接收每日提醒。",
+  "settingsOpenSystemSettings": "去设置",
+  "reminderNotificationTitle": "该复习啦",
+  "reminderNotificationBody": "完成今天的生词和复习吧。",
+  "aboutTitle": "关于",
+  "aboutPrivacyNote": "本应用是免费学习工具，学习数据仅保存在本机，不上传任何个人数据。",
+  "aboutSourcesTitle": "数据来源",
+  "aboutSourceGaokao": "教育部《高考英语考试大纲》词汇表",
+  "aboutSourceGaokaoDesc": "词表口径；无官方机器可读文件，以 ECDICT gk 标签为种子",
+  "aboutSourceEcdict": "ECDICT（MIT 协议）",
+  "aboutSourceEcdictDesc": "释义、词性、兜底音标、考频代理",
+  "aboutSourceIpa": "ipa-dict en_US（MIT，基于 CMUdict）",
+  "aboutSourceIpaDesc": "美式 IPA 音标（主源）",
+  "aboutSourceTatoeba": "Tatoeba 英语例句库（CC BY 2.0 FR）",
+  "aboutSourceTatoebaDesc": "例句随词条保存作者署名，满足署名要求",
+  "aboutSourceTts": "Microsoft Edge TTS（en-US-AriaNeural）",
+  "aboutSourceTtsDesc": "美音发音批量生成",
   "resultsTitle": "今日成果",
   "resultsCheckinSuccess": "打卡成功！",
   "resultsSummary": "今日已学新词 {newCount} · 复习 {reviewCount}",

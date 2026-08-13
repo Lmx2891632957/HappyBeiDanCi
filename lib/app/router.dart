@@ -1,15 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/about/about_page.dart';
 import '../features/home/home_page.dart';
 import '../features/learn/learn_page.dart';
 import '../features/onboarding/onboarding_page.dart';
 import '../features/onboarding/splash_page.dart';
 import '../features/results/results_page.dart';
 import '../features/review/review_page.dart';
+import '../features/settings/settings_page.dart';
 
-/// 路由装配（TECH_DOC §4 补充说明 4）：splash/onboarding/home/learn/review/
-/// results 六路由。启动经 `/splash` 首帧判定（§5.1）：首启未完成 → `/onboarding`
+/// 路由装配（TECH_DOC §4 补充说明 4/8）：splash/onboarding/home/learn/review/
+/// results/settings/about 八路由。启动经 `/splash` 首帧判定（§5.1）：首启未完成 → `/onboarding`
 /// （选词书 → 设每日目标 → 开始），已完成 → `/`（今日任务页）；会话页参数经
 /// `extra` 传入（LearnRouteArgs/ReviewRouteArgs）。
 final routerProvider = Provider<GoRouter>((ref) {
@@ -48,6 +50,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/results',
         name: 'results',
         builder: (context, state) => const ResultsPage(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/about',
+        name: 'about',
+        builder: (context, state) => const AboutPage(),
       ),
     ],
   );

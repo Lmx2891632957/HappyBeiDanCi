@@ -23,7 +23,17 @@ class HomePage extends ConsumerWidget {
     final todayAsync = ref.watch(todayPlanProvider);
     final sessionsAsync = ref.watch(unfinishedSessionsProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.homeTitle)),
+      appBar: AppBar(
+        title: Text(l10n.homeTitle),
+        actions: [
+          // 设置入口（TECH_DOC §4 补充说明 8：/settings 路由）。
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: l10n.settingsTitle,
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
+      ),
       body: todayAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorView(

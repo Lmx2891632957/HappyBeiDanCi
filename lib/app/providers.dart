@@ -14,6 +14,8 @@ import '../data/sources/audio_pack_download_scheduler.dart';
 import '../data/sources/audio_pack_downloader.dart';
 import '../data/sources/audio_pack_paths.dart';
 import '../data/sources/audio_playback_service.dart';
+import '../data/sources/data_exporter.dart';
+import '../data/sources/reminder_scheduler.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
 import '../domain/models/wordbook.dart';
@@ -45,6 +47,12 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => DriftSettingsRepository(ref.watch(databaseProvider)),
 );
 
+/// 应用设置（TECH_DOC §4 补充说明 8）：`App` 根组件据此驱动界面语言与
+/// 深色模式；设置页保存后 `invalidate` 本 provider 即时生效。
+final appSettingsProvider = FutureProvider<AppSettings>(
+  (ref) => ref.watch(settingsRepositoryProvider).load(),
+);
+
 /// 离线音频包状态仓储（TECH_DOC §9.3）。
 final audioPackRepositoryProvider = Provider<AudioPackRepository>(
   (ref) => DriftAudioPackRepository(ref.watch(databaseProvider)),
@@ -72,11 +80,25 @@ final audioPlaybackServiceProvider = Provider<AudioPlaybackService>(
   ),
 );
 
+/// 每日提醒调度（TECH_DOC §11.1）；Widget 测试注入桩覆盖。
+final reminderSchedulerProvider = Provider<ReminderScheduler>(
+  (ref) => LocalNotificationReminderScheduler(),
+);
+
+/// 数据导出（TECH_DOC §8.2）；分享函数可注入测试桩。
+final dataExporterProvider = Provider<DataExporter>(
+  (ref) => DataExporter(
+    reviewLogs: ref.watch(reviewLogRepositoryProvider),
+    userWords: ref.watch(userWordRepositoryProvider),
+  ),
+);
+
 /// 首启门卫（TECH_DOC §5.1）：读取设置中的 `onboarding_done`，供 Splash
-/// 首帧路由判定（未完成 → /onboarding，已完成 → /）。独立 provider 便于
-/// Widget 测试覆盖与加载失败重试；读取为异步，Splash 兜住等待期（§12）。
+/// 首帧路由判定（未完成 → /onboarding，已完成 → /）。派生自
+/// [appSettingsProvider]：App 根组件与 Splash 共用一次 settings 读取，
+/// 避免两个 provider 并发 load 触发缺键回填竞态（§8.1 回填口径）。
 final onboardingGateProvider = FutureProvider<bool>((ref) async {
-  final settings = await ref.watch(settingsRepositoryProvider).load();
+  final settings = await ref.watch(appSettingsProvider.future);
   return settings.onboardingDone;
 });
 
