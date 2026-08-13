@@ -254,6 +254,99 @@ void main() {
     });
   });
 
+  group('熟词跳过（PRD F1 / TECH_DOC §8.3）', () {
+    Future<void> seedWords(
+      AppDatabase db,
+      List<(int, String)> entries, {
+      int bookId = 1,
+    }) async {
+      await seedBook(db, id: bookId, totalCount: entries.length);
+      for (final (id, word) in entries) {
+        await seedWord(db, id: id, word: word, frequency: 'high');
+        await seedItem(db, wordId: id, seq: id, shuffled: id);
+      }
+    }
+
+    test('setSkipped：写入后从新词序列剔除，取消后恢复', () async {
+      final (db, repo) = openRepo('skip_write');
+      await seedWords(db, [(1, 'a'), (2, 'b'), (3, 'c')]);
+
+      await repo.setSkipped(wordbookId: 1, wordId: 2, skipped: true);
+      expect(await repo.getSkippedWordIds(1), {2});
+      expect((await repo.getWordsByBook(1)).map((w) => w.word), ['a', 'c']);
+      expect(await repo.countRemainingNewWords(1), 2);
+
+      await repo.setSkipped(wordbookId: 1, wordId: 2, skipped: false);
+      expect(await repo.getSkippedWordIds(1), isEmpty);
+      expect(await repo.countRemainingNewWords(1), 3);
+    });
+
+    test('setAllSkipped：整本词书标记/清除', () async {
+      final (db, repo) = openRepo('skip_all');
+      await seedWords(db, [(1, 'a'), (2, 'b'), (3, 'c')]);
+
+      await repo.setAllSkipped(1, skipped: true);
+      expect(await repo.getSkippedWordIds(1), {1, 2, 3});
+      expect(await repo.countRemainingNewWords(1), 0);
+
+      await repo.setAllSkipped(1, skipped: false);
+      expect(await repo.getSkippedWordIds(1), isEmpty);
+      expect(await repo.countRemainingNewWords(1), 3);
+    });
+
+    test('getAllWordsByBook：全量（含已学/已跳过）按 shuffled 分页稳定', () async {
+      final (db, repo) = openRepo('skip_all_words');
+      await seedWords(db, [
+        (1, 'a'),
+        (2, 'b'),
+        (3, 'c'),
+        (4, 'd'),
+        (5, 'e'),
+      ]);
+      await repo.setSkipped(wordbookId: 1, wordId: 2, skipped: true);
+      await seedLearned(db, wordId: 3);
+
+      final page1 = await repo.getAllWordsByBook(1, limit: 2, offset: 0);
+      final page2 = await repo.getAllWordsByBook(1, limit: 2, offset: 2);
+      final page3 = await repo.getAllWordsByBook(1, limit: 2, offset: 4);
+      expect(page1.map((w) => w.word), ['a', 'b']);
+      expect(page2.map((w) => w.word), ['c', 'd']);
+      expect(page3.map((w) => w.word), ['e']);
+      // 已学/已跳过词仍出现在全量列表（供快筛页勾选展示）。
+      expect(
+        page2.map((w) => w.word),
+        containsAll(['c']),
+      );
+    });
+
+    test('searchWordsByBook：包含匹配、大小写不敏感、通配符按字面', () async {
+      final (db, repo) = openRepo('skip_search');
+      await seedWords(db, [
+        (1, 'apple'),
+        (2, 'app'),
+        (3, 'banana'),
+        (4, 'water'),
+        (5, 'book'),
+      ]);
+
+      expect(
+        (await repo.searchWordsByBook(1, 'ap')).map((w) => w.word),
+        ['apple', 'app'],
+      );
+      expect(
+        (await repo.searchWordsByBook(1, 'APP')).map((w) => w.word),
+        ['apple', 'app'],
+      );
+      // instr 语义：% 与 _ 按字面匹配，不构成通配符。
+      expect(await repo.searchWordsByBook(1, '%'), isEmpty);
+      expect(await repo.searchWordsByBook(1, 'a_e'), isEmpty);
+      expect(
+        (await repo.searchWordsByBook(1, 'a')).map((w) => w.word),
+        ['apple', 'app', 'banana', 'water'],
+      );
+    });
+  });
+
   group('损坏数据口径：不静默', () {
     test('未知 frequency 抛 StateError', () async {
       final (db, repo) = openRepo('corrupt_freq');
