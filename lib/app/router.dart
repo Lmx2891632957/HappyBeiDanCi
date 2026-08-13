@@ -5,6 +5,7 @@ import '../features/about/about_page.dart';
 import '../features/home/home_page.dart';
 import '../features/learn/learn_page.dart';
 import '../features/onboarding/onboarding_page.dart';
+import '../features/onboarding/skip_known_words_page.dart';
 import '../features/onboarding/splash_page.dart';
 import '../features/results/results_page.dart';
 import '../features/review/review_page.dart';
@@ -28,6 +29,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         name: 'onboarding',
         builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: '/onboarding/skip',
+        name: 'skip-known-words',
+        builder: (context, state) =>
+            SkipKnownWordsPage(wordbookId: state.extra as int),
       ),
       GoRoute(
         path: '/',

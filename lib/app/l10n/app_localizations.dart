@@ -146,6 +146,66 @@ abstract class AppLocalizations {
   /// **'Failed to save settings: {error}'**
   String onboardingSaveFailed(String error);
 
+  /// No description provided for @onboardingSkipKnownWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark words you already know (optional)'**
+  String get onboardingSkipKnownWords;
+
+  /// 引导页：熟词快筛已标记数量
+  ///
+  /// In en, this message translates to:
+  /// **'{count} word(s) marked'**
+  String onboardingSkipCount(int count);
+
+  /// No description provided for @skipKnownTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark known words'**
+  String get skipKnownTitle;
+
+  /// No description provided for @skipKnownSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search words'**
+  String get skipKnownSearchHint;
+
+  /// No description provided for @skipKnownSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all'**
+  String get skipKnownSelectAll;
+
+  /// No description provided for @skipKnownClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get skipKnownClearAll;
+
+  /// No description provided for @skipKnownDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get skipKnownDone;
+
+  /// No description provided for @skipKnownSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save: {error}'**
+  String skipKnownSaveFailed(String error);
+
+  /// No description provided for @skipKnownLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load words: {error}'**
+  String skipKnownLoadFailed(String error);
+
+  /// No description provided for @skipKnownEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No words found'**
+  String get skipKnownEmpty;
+
   /// 首页占位提示：工程骨架已就绪
   ///
   /// In en, this message translates to:

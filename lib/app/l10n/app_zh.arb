@@ -22,6 +22,38 @@
       }
     }
   },
+  "onboardingSkipKnownWords": "标记已掌握词（可选）",
+  "onboardingSkipCount": "已标记 {count} 个词",
+  "@onboardingSkipCount": {
+    "description": "引导页：熟词快筛已标记数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skipKnownTitle": "标记已掌握词",
+  "skipKnownSearchHint": "搜索单词",
+  "skipKnownSelectAll": "全部标记",
+  "skipKnownClearAll": "全部清除",
+  "skipKnownDone": "完成",
+  "skipKnownSaveFailed": "保存失败：{error}",
+  "@skipKnownSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "skipKnownLoadFailed": "加载单词失败：{error}",
+  "@skipKnownLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "skipKnownEmpty": "未找到单词",
   "homeSkeletonReady": "工程骨架已就绪。",
   "homeTitle": "今日任务",
   "homeLoading": "加载中…",

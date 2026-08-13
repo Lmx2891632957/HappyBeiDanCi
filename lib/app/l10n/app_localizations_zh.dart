@@ -37,6 +37,42 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get onboardingSkipKnownWords => '标记已掌握词（可选）';
+
+  @override
+  String onboardingSkipCount(int count) {
+    return '已标记 $count 个词';
+  }
+
+  @override
+  String get skipKnownTitle => '标记已掌握词';
+
+  @override
+  String get skipKnownSearchHint => '搜索单词';
+
+  @override
+  String get skipKnownSelectAll => '全部标记';
+
+  @override
+  String get skipKnownClearAll => '全部清除';
+
+  @override
+  String get skipKnownDone => '完成';
+
+  @override
+  String skipKnownSaveFailed(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String skipKnownLoadFailed(String error) {
+    return '加载单词失败：$error';
+  }
+
+  @override
+  String get skipKnownEmpty => '未找到单词';
+
+  @override
   String get homeSkeletonReady => '工程骨架已就绪。';
 
   @override

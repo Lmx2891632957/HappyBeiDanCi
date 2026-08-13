@@ -42,6 +42,38 @@
       }
     }
   },
+  "onboardingSkipKnownWords": "Mark words you already know (optional)",
+  "onboardingSkipCount": "{count} word(s) marked",
+  "@onboardingSkipCount": {
+    "description": "引导页：熟词快筛已标记数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skipKnownTitle": "Mark known words",
+  "skipKnownSearchHint": "Search words",
+  "skipKnownSelectAll": "Mark all",
+  "skipKnownClearAll": "Clear all",
+  "skipKnownDone": "Done",
+  "skipKnownSaveFailed": "Failed to save: {error}",
+  "@skipKnownSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "skipKnownLoadFailed": "Failed to load words: {error}",
+  "@skipKnownLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "skipKnownEmpty": "No words found",
   "homeSkeletonReady": "Project skeleton is ready.",
   "@homeSkeletonReady": {
     "description": "首页占位提示：工程骨架已就绪"

@@ -29,6 +29,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   String? _loadError;
   int? _selectedBookId;
   int _dailyGoal = AppConstants.defaultDailyNewWords;
+  int _skippedCount = 0;
   bool _saving = false;
 
   @override
@@ -125,6 +126,22 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
   }
 
+  /// 熟词快筛（PRD F1，可选步骤）：进入快筛页标记已掌握词，返回后展示摘要。
+  Future<void> _openSkipKnownWords() async {
+    final bookId = _selectedBookId;
+    if (bookId == null) {
+      return;
+    }
+    final marked = await context.push<int>(
+      '/onboarding/skip',
+      extra: bookId,
+    );
+    if (!mounted || marked == null) {
+      return;
+    }
+    setState(() => _skippedCount = marked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -177,6 +194,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               setState(() => _dailyGoal = selection.first);
             }
           },
+        ),
+        const SizedBox(height: 12),
+        // 熟词跳过（PRD F1，可选步骤）：标记已掌握词后不再进入“新词”序列
+        // （TECH_DOC §8.3）；跳过不影响开始学习。
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.checklist),
+            title: Text(l10n.onboardingSkipKnownWords),
+            subtitle: _skippedCount > 0
+                ? Text(l10n.onboardingSkipCount(_skippedCount))
+                : null,
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _openSkipKnownWords,
+          ),
         ),
         const SizedBox(height: 32),
         FilledButton(
