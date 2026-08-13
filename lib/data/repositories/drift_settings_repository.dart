@@ -44,6 +44,22 @@ class DriftSettingsRepository implements SettingsRepository {
         AppSettingKeys.onboardingDone,
         defaults.onboardingDone,
       ),
+      // 空串按未安装处理（与 _toMap 写入口径一致）。
+      wordbookVersion: _readNullableText(
+        values,
+        AppSettingKeys.wordbookVersion,
+        defaults.wordbookVersion,
+      ),
+      pronunciationEnabled: _readBool(
+        values,
+        AppSettingKeys.pronunciationEnabled,
+        defaults.pronunciationEnabled,
+      ),
+      audioDownloadOnCellular: _readBool(
+        values,
+        AppSettingKeys.audioDownloadOnCellular,
+        defaults.audioDownloadOnCellular,
+      ),
     );
 
     // 缺失键回填默认值：settings 为通用键值表，缺键按默认值补齐，
@@ -105,6 +121,11 @@ class DriftSettingsRepository implements SettingsRepository {
         settings.examDate?.millisecondsSinceEpoch.toString() ?? '',
     AppSettingKeys.timezone: settings.timezone,
     AppSettingKeys.onboardingDone: settings.onboardingDone ? 'true' : 'false',
+    AppSettingKeys.wordbookVersion: settings.wordbookVersion ?? '',
+    AppSettingKeys.pronunciationEnabled:
+        settings.pronunciationEnabled ? 'true' : 'false',
+    AppSettingKeys.audioDownloadOnCellular:
+        settings.audioDownloadOnCellular ? 'true' : 'false',
   };
 
   /// 读取整数键；缺失用默认值，坏值抛 StateError（与既有仓储"损坏不静默"
@@ -148,6 +169,19 @@ class DriftSettingsRepository implements SettingsRepository {
       'false' => false,
       _ => throw StateError('settings 损坏：$key 不是布尔（value=$raw）'),
     };
+  }
+
+  /// 读取可空文本键：缺失/空串 → null（未设置）。
+  String? _readNullableText(
+    Map<String, String> values,
+    String key,
+    String? fallback,
+  ) {
+    final raw = values[key];
+    if (raw == null || raw.isEmpty) {
+      return fallback;
+    }
+    return raw;
   }
 
   DateTime? _readExamDate(Map<String, String> values, DateTime? fallback) {
