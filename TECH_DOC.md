@@ -710,6 +710,20 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 >   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
 >   完成，崩溃回滚不产生半升级状态。
 
+> 首装流程（2026-08-13 单元 6 落地时新增，`lib/data/sources/
+> wordbook_installer.dart`）：
+> - **触发**：应用启动后台异步（`main()` 后 `unawaited`）与今日任务页
+>   「无词库」重试入口；`settings.wordbook_version` 非空即视为已装，幂等跳过；
+>   并发触发经实例级 in-flight Future 串行化，避免双导入。
+> - **流程**：拉取发布基址 `manifest.json`（§9.2 同一产物基址）→ 下载
+>   `artifacts.wordbook_db` 对应 DB 文件到 `<应用私有目录>/wordbooks/
+>   <版本>.db` → SHA-256 校验（`Sha256Utils` 流式哈希，失败删除半包）→
+>   `WordbookImporter.importFromFile`（校验/备份/整体替换/remap，§8.2 导入
+>   口径，版本键由导入器写入）→ 成功后按新版本调度发音包下载（§9.2 触发）。
+> - **失败语义**：下载/校验/导入任一步失败不产生半装状态（导入同事务），
+>   应用显示「无词库」并允许重试；在线兜底不涉及（词库是核心前置，失败仅
+>   影响新装体验，不影响已装用户升级）。
+
 ### 8.3 新词学习顺序（乱序的确定性）
 
 首次进入词书时，用 `seed = hash(wordbook_id, 设备安装时间)` 生成 `shuffled` 序号并持久化；此后新词按 `shuffled` 递增取用，同频段内优先（先 high → medium → low）。这样：
@@ -943,6 +957,11 @@ flowchart LR
 | 存储 | WAL 模式、单写连接；`daily_stats` 按天 upsert |
 | 内存 | 例句/释义 JSON 惰性解析；音频只保留当前会话 LRU |
 
+> 单元 6 收口（2026-08-13）：词库首装下载/导入在 `main()` 后 `unawaited`
+> 异步执行，不阻塞首帧渲染与今日页骨架（§8.2 首装流程）；「启动到首卡」
+> 计时口径为**已装词库**场景（release 包冷启动 → 首张卡片），首装场景
+> 受网络与导入耗时影响不纳入该指标（PRD §8 T-03 面向日常使用）。
+
 ---
 
 ## 13. 安全、隐私与合规
@@ -997,8 +1016,29 @@ flowchart LR
 
 ### 14.3 CI 与发布
 
-- GitHub Actions：`flutter analyze` + `flutter test` + `integration_test`（Android 模拟器）+ 构建 release APK；
-- 词库产物发布走独立 workflow（内容管线），产物带版本号；App 内检查版本并提示更新离线包。
+- GitHub Actions（2026-08-13 单元 6 落地，`.github/workflows/`）：
+  - `ci.yml`：push / PR 触发，Ubuntu + Flutter stable（`subosito/flutter-action`
+    带缓存）：`flutter analyze` → `flutter test` → `flutter build apk --release`，
+    APK 经 `actions/upload-artifact` 供下载；集成测试（Android 模拟器）列入
+    M1 后续增强（当前以仓储/Widget 集成测试覆盖，§14.2 口径）。
+  - `publish-wordbook.yml`：`workflow_dispatch`（输入 `include_tts`，默认
+    false）或标签 `wordbook-gaokao-3500-v*` 触发；在自托管/手动 runner 上
+    执行内容管线（fetch → align → build → qa → package，TTS 可选因耗时长），
+    产物 `output/<包名>-v<版本>/`（词库 DB + 音频 zip + manifest）经
+    `softprops/action-gh-release` 发布到同名 tag 的 GitHub Release，带 SHA-256
+    校验信息；产物版本独立编号（§10 打包），与代码 tag 不混用（AGENTS §5.3）。
+- **M1 真机验收清单（手动，AGENTS §7 离线/续学验证要求）**：
+  1. 首次启动（有网）：词库自动安装 → Onboarding → 首卡；记录「点开 App 到
+     首张卡片」耗时（release 包，目标 < 2s，§12）。
+  2. 飞行模式：冷启动直达今日页；学习 3 词 → 复习（若有到期词）→ 完成页打卡
+     全流程不依赖网络；发音在离线包未就绪时静默（无崩溃）。
+  3. 中断续学：学习中切后台/杀进程 → 重开 → 「继续上次未完成的学习」恢复一致。
+  4. 发音：在线播放（Wi-Fi/蜂窝）、离线包下载进度与前台通知、断网后本地播放；
+     SHA-256 校验失败时自动重试不残留半包。
+  5. 通知：Android 13+ 首次开启提醒弹权限；拒绝后设置页出现系统设置引导；
+     厂商 ROM（小米/华为等）按系统提示加白「自启动/后台活动」后提醒正常。
+  6. 数据导出：设置页导出 CSV/JSON 经分享面板输出，文件可被 WPS/Excel 打开
+     且中文不乱码（UTF-8 BOM）。
 
 ---
 
