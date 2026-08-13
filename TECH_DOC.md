@@ -206,7 +206,9 @@ test/
 >    提醒时间、界面语言（简体中文/English）、深色模式（跟随系统/浅色/深色）、
 >    数据导出（CSV/JSON，§8.2）与「关于/数据来源」入口；全部经
 >    `SettingsRepository.save` 全量写入（§8.1 通用键值表，无 schema 变更），
->    提醒时间/开关变更同步 `ReminderScheduler` 重排（§11.1）。
+>    提醒时间/开关变更同步 `ReminderScheduler` 重排（§11.1）。语言默认
+>    「跟随系统」（空串），选择后存 'zh'/'en'，`MaterialApp.locale` 仅在
+>    非空时覆盖。
 
 ---
 
@@ -1014,6 +1016,6 @@ flowchart LR
 | 蜂窝下载离线包（audio_download_on_cellular） | false | F5，默认仅 Wi-Fi/非计费网络自动下载（§9.2） |
 | 离线包发布基址 | `https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/` | TD-11；换对象存储只改此常量（§9.2） |
 | 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
-| 界面语言（language） | zh | 简体中文 / English 切换（PRD F7），键名 `language` |
+| 界面语言（language） | ''（跟随系统） | 简体中文 / English 切换（PRD F7）；选择后存 `zh`/`en`，键名 `language` |
 | 深色模式（theme_mode） | system | system / light / dark（PRD F7），键名 `theme_mode` |
 | 提醒通知 ID / 频道 | 1000 / `daily_reminder` | flutter_local_notifications（§11.1） |
