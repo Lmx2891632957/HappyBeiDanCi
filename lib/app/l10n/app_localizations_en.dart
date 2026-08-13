@@ -96,6 +96,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'No wordbook available (content pack not installed)';
 
   @override
+  String get homePreparingWordbook => 'Preparing wordbook…';
+
+  @override
   String homeWordbook(String name) {
     return 'Wordbook: $name';
   }

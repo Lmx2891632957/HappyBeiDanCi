@@ -16,6 +16,8 @@ import 'data/repositories/drift_settings_repository.dart';
 import 'data/repositories/drift_wordbook_repository.dart';
 import 'data/sources/audio_pack_download_scheduler.dart';
 import 'data/sources/audio_pack_worker.dart';
+import 'data/sources/wordbook_installer.dart';
+import 'data/sources/wordbook_importer.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +29,33 @@ void main() {
   // F5：应用启动即检查"词库已安装且离线包未 ready"，后台注册下载任务。
   // 异步执行不阻塞首帧渲染（T-03 启动到首卡 < 2s）。
   unawaited(_scheduleAudioPackIfNeeded());
+  // 词库未安装时后台首装（TECH_DOC §8.2 首装流程），同样不阻塞首帧。
+  unawaited(_ensureWordbookInstalled());
+}
+
+/// 词库首装（幂等）：安装成功后按新版本调度发音包下载。
+/// 失败仅记录日志，今日页「无词库」状态提供重试入口（§8.2 失败语义）。
+Future<void> _ensureWordbookInstalled() async {
+  if (kIsWeb || !Platform.isAndroid) {
+    return;
+  }
+  try {
+    final db = AppDatabase();
+    try {
+      final installer = WordbookInstaller(
+        importer: WordbookImporter(db),
+        settingsRepository: DriftSettingsRepository(db),
+      );
+      final version = await installer.ensureInstalled();
+      if (version != null) {
+        await _scheduleAudioPackIfNeeded();
+      }
+    } finally {
+      await db.close();
+    }
+  } catch (error) {
+    AppLogger.warning('词库首装失败（今日页可重试）：$error');
+  }
 }
 
 /// 词库已安装时注册当前词书发音离线包下载任务（幂等：keep + 状态判断）。

@@ -90,6 +90,7 @@
   },
   "homeRetry": "Retry",
   "homeNoWordbook": "No wordbook available (content pack not installed)",
+  "homePreparingWordbook": "Preparing wordbook…",
   "homeWordbook": "Wordbook: {name}",
   "@homeWordbook": {
     "placeholders": {

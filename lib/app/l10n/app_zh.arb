@@ -67,6 +67,7 @@
   },
   "homeRetry": "重试",
   "homeNoWordbook": "暂无可用词书（词库包未安装）",
+  "homePreparingWordbook": "正在准备词库…",
   "homeWordbook": "词书：{name}",
   "@homeWordbook": {
     "placeholders": {

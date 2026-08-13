@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:crypto/crypto.dart';
 
 import '../../core/constants.dart';
+import '../../core/hash_utils.dart';
 import '../../core/logger.dart';
 import 'audio_pack_manifest.dart';
 
@@ -98,7 +97,7 @@ class AudioPackDownloader {
     );
 
     // 5. zip 整体 SHA-256 校验（TECH_DOC §9.2 第 5 条）；不一致删除 .part。
-    final actualSha = _sha256File(partFile);
+    final actualSha = Sha256Utils.fileSha256(partFile);
     if (actualSha != manifest.zipSha256) {
       partFile.deleteSync();
       throw AudioPackDownloadException(
@@ -250,7 +249,7 @@ class AudioPackDownloader {
         );
       }
       final expected = manifest.audioFileSha256[fileName];
-      if (expected != null && _sha256File(target) != expected) {
+      if (expected != null && Sha256Utils.fileSha256(target) != expected) {
         throw AudioPackDownloadException(
           AudioPackDownloadFailure.checksum,
           '文件 SHA-256 不匹配：$safePath',
@@ -334,38 +333,4 @@ class AudioPackDownloader {
     }
   }
 
-  /// 分块流式 SHA-256（50–100 MB 包不整读入内存）。
-  String _sha256File(File file) {
-    final raf = file.openSync();
-    final collector = _DigestCollector();
-    final sink = sha256.startChunkedConversion(collector);
-    final chunk = Uint8List(1 << 16);
-    try {
-      while (true) {
-        final read = raf.readIntoSync(chunk);
-        if (read == 0) {
-          break;
-        }
-        sink.add(chunk.sublist(0, read));
-      }
-    } finally {
-      raf.closeSync();
-    }
-    sink.close();
-    return collector.digest.toString();
-  }
-}
-
-/// 收集哈希转换器的唯一输出（crypto 3.x 未公开 DigestSink，避免依赖内部
-/// `src/` 导入，按 `Sink<Digest>` 契约自行实现）。
-class _DigestCollector implements Sink<Digest> {
-  Digest? _digest;
-
-  Digest get digest => _digest!;
-
-  @override
-  void add(Digest data) => _digest = data;
-
-  @override
-  void close() {}
 }

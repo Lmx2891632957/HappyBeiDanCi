@@ -16,6 +16,7 @@ import '../data/sources/audio_pack_paths.dart';
 import '../data/sources/audio_playback_service.dart';
 import '../data/sources/data_exporter.dart';
 import '../data/sources/reminder_scheduler.dart';
+import '../data/sources/wordbook_installer.dart';
 import '../data/sources/wordbook_importer.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
@@ -97,6 +98,19 @@ final dataExporterProvider = Provider<DataExporter>(
     reviewLogs: ref.watch(reviewLogRepositoryProvider),
     userWords: ref.watch(userWordRepositoryProvider),
   ),
+);
+
+/// 词库首装服务（TECH_DOC §8.2 首装流程）。
+final wordbookInstallerProvider = Provider<WordbookInstaller>(
+  (ref) => WordbookInstaller(
+    importer: ref.watch(wordbookImporterProvider),
+    settingsRepository: ref.watch(settingsRepositoryProvider),
+  ),
+);
+
+/// 词库首装状态（返回值 = 安装版本）：今日页「无词库」时展示准备中/失败重试。
+final wordbookInstallProvider = FutureProvider.autoDispose<String?>(
+  (ref) => ref.watch(wordbookInstallerProvider).ensureInstalled(),
 );
 
 /// 首启门卫（TECH_DOC §5.1）：读取设置中的 `onboarding_done`，供 Splash
