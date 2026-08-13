@@ -16,6 +16,7 @@ import '../data/sources/audio_pack_paths.dart';
 import '../data/sources/audio_playback_service.dart';
 import '../data/sources/data_exporter.dart';
 import '../data/sources/reminder_scheduler.dart';
+import '../data/sources/wordbook_importer.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
 import '../domain/models/wordbook.dart';
@@ -37,6 +38,11 @@ import '../domain/sessions/session_snapshot.dart';
 /// 数据库实例：Provider 惰性求值，应用启动时首页先渲染骨架、
 /// 不等待磁盘 IO（TECH_DOC §12 启动到首卡 < 2s）。
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+
+/// 发布版词库导入器（TECH_DOC §8.2）：校验/备份/整体替换/word_id remap。
+final wordbookImporterProvider = Provider<WordbookImporter>(
+  (ref) => WordbookImporter(ref.watch(databaseProvider)),
+);
 
 /// 各仓储（UI 不直接读写数据库，AGENTS §3.2：一律经本层注入的仓储接口访问）。
 final wordbookRepositoryProvider = Provider<WordbookRepository>(

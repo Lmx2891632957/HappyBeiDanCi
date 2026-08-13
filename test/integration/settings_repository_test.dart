@@ -94,6 +94,7 @@ void main() {
         audioDownloadOnCellular: true,
         language: 'en',
         themeMode: 'dark',
+        wordbookVersion: '1.0',
       ),
     );
     final loaded = await repo.load();
@@ -107,6 +108,7 @@ void main() {
     expect(loaded.audioDownloadOnCellular, isTrue);
     expect(loaded.language, 'en');
     expect(loaded.themeMode, 'dark');
+    expect(loaded.wordbookVersion, '1.0');
 
     // 存储层校验：reviewCap 关闭存 'off'、examDate 存 epoch 毫秒文本。
     final rows = await db.select(db.settings).get();

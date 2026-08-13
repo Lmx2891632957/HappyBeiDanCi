@@ -22,6 +22,7 @@ dependencies:
   just_audio: ^0.10.6
   path_provider: ^2.1.6
   share_plus: ^13.3.0
+  sqlite3: ^3.5.1
   timezone: ^0.11.1
   workmanager: ^0.10.7
 

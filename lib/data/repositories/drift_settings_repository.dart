@@ -142,6 +142,19 @@ class DriftSettingsRepository implements SettingsRepository {
     AppSettingKeys.themeMode: settings.themeMode,
   };
 
+  /// 读取可空文本键：缺失/空串 → null（未设置）。
+  String? _readNullableText(
+    Map<String, String> values,
+    String key,
+    String? fallback,
+  ) {
+    final raw = values[key];
+    if (raw == null || raw.isEmpty) {
+      return fallback;
+    }
+    return raw;
+  }
+
   /// 读取整数键；缺失用默认值，坏值抛 StateError（与既有仓储"损坏不静默"
   /// 口径一致，避免静默改写设置）。
   int _readInt(Map<String, String> values, String key, int fallback) {

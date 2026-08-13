@@ -123,7 +123,6 @@ abstract final class AppSettingKeys {
 
   /// 深色模式（'system' / 'light' / 'dark'，PRD F7）。
   static const String themeMode = 'theme_mode';
-
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,
