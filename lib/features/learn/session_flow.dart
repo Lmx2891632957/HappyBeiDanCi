@@ -327,7 +327,10 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
               padding: const EdgeInsets.all(16),
               child: word == null
                   ? Text(l10n.sessionLoading)
-                  : SessionCard(word: word),
+                  : SessionCard(
+                      word: word,
+                      wordbookId: widget.wordbookId,
+                    ),
             ),
           ),
         ),

@@ -3,12 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/logger.dart';
 import '../core/time_utils.dart';
 import '../data/local/app_database.dart';
+import '../data/repositories/drift_audio_pack_repository.dart';
 import '../data/repositories/drift_review_log_repository.dart';
 import '../data/repositories/drift_session_repository.dart';
 import '../data/repositories/drift_settings_repository.dart';
 import '../data/repositories/drift_stats_repository.dart';
 import '../data/repositories/drift_user_word_repository.dart';
 import '../data/repositories/drift_wordbook_repository.dart';
+import '../data/sources/audio_pack_download_scheduler.dart';
+import '../data/sources/audio_pack_downloader.dart';
+import '../data/sources/audio_pack_paths.dart';
+import '../data/sources/audio_playback_service.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
 import '../domain/models/wordbook.dart';
@@ -16,6 +21,7 @@ import '../domain/scheduling/fsrs/fsrs_engine.dart';
 import '../domain/scheduling/fsrs_scheduler.dart';
 import '../domain/services/daily_plan_calculator.dart';
 import '../domain/services/default_daily_plan_calculator.dart';
+import '../domain/services/audio_pack_repository.dart';
 import '../domain/services/review_log_repository.dart';
 import '../domain/services/session_repository.dart';
 import '../domain/services/settings_repository.dart';
@@ -37,6 +43,33 @@ final wordbookRepositoryProvider = Provider<WordbookRepository>(
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
   (ref) => DriftSettingsRepository(ref.watch(databaseProvider)),
+);
+
+/// 离线音频包状态仓储（TECH_DOC §9.3）。
+final audioPackRepositoryProvider = Provider<AudioPackRepository>(
+  (ref) => DriftAudioPackRepository(ref.watch(databaseProvider)),
+);
+
+/// 离线音频包下载器（TECH_DOC §9.2，纯 Dart）。
+final audioPackDownloaderProvider = Provider<AudioPackDownloader>(
+  (ref) => AudioPackDownloader(packRootProvider: AudioPackPaths.packRoot),
+);
+
+/// 离线音频包下载任务调度（TECH_DOC §11.2）：注册/取消 WorkManager 任务。
+final audioPackDownloadSchedulerProvider = Provider<AudioPackDownloadScheduler>(
+  (ref) => AudioPackDownloadScheduler(
+    settingsRepository: ref.watch(settingsRepositoryProvider),
+    audioPackRepository: ref.watch(audioPackRepositoryProvider),
+  ),
+);
+
+/// 发音播放服务（PRD F5 / TECH_DOC §9.1）：单例复用 AudioPlayer，
+/// 跨会话/页面保持播放状态（autoDispose 会在无监听时释放播放器，故不用）。
+final audioPlaybackServiceProvider = Provider<AudioPlaybackService>(
+  (ref) => AudioPlaybackService(
+    settingsRepository: ref.watch(settingsRepositoryProvider),
+    audioPackRepository: ref.watch(audioPackRepositoryProvider),
+  ),
 );
 
 /// 首启门卫（TECH_DOC §5.1）：读取设置中的 `onboarding_done`，供 Splash

@@ -147,6 +147,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get audioUnavailable => 'Audio not available yet';
 
   @override
+  String get audioPlay => 'Play pronunciation';
+
+  @override
+  String get audioDownloadNotificationTitle => 'Downloading pronunciation pack';
+
+  @override
+  String get audioDownloadNotificationText =>
+      'Downloading audio; offline playback available when finished';
+
+  @override
+  String get audioDownloadNotificationChannelName =>
+      'Pronunciation pack download';
+
+  @override
   String get resultsTitle => 'Today\'s results';
 
   @override

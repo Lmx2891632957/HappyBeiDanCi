@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 在线发音播放（just_audio，TECH_DOC §9.1）与离线包下载。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- WorkManager dataSync 前台服务保活（TECH_DOC §11.2；Android 14+
+         需类型专属权限，配合 gradle 属性
+         workmanager.enableDataSyncForegroundService=true 使用）。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+
     <application
         android:label="我爱背单词"
         android:name="${applicationName}"

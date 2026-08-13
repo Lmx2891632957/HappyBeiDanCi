@@ -1,24 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/l10n/app_localizations.dart';
+import '../../../app/providers.dart';
 import '../../../domain/models/word.dart';
 
 /// 会话卡片（学习/复习共用，TECH_DOC §4 补充说明 5）。
 ///
-/// 正面：单词 + 音标 + 发音占位按钮（音频在线源未接入，置灰不阻塞核心闭环，
-/// T-02）；点击翻面：常用释义（1–3 条）+ 首条例句。复习"认识/不认识快速
-/// 判断"同样可翻面查看释义后作答，评分后完成页/反馈区仍展示释义。
-class SessionCard extends StatefulWidget {
-  const SessionCard({super.key, required this.word});
+/// 正面：单词 + 音标 + 发音按钮（F5 在线优先 + 离线包，TECH_DOC §9.1）；
+/// 点击翻面：常用释义（1–3 条）+ 首条例句。复习"认识/不认识快速判断"同样
+/// 可翻面查看释义后作答，评分后完成页/反馈区仍展示释义。
+class SessionCard extends ConsumerStatefulWidget {
+  const SessionCard({super.key, required this.word, required this.wordbookId});
 
   final Word word;
+  final int wordbookId;
 
   @override
-  State<SessionCard> createState() => _SessionCardState();
+  ConsumerState<SessionCard> createState() => _SessionCardState();
 }
 
-class _SessionCardState extends State<SessionCard> {
+class _SessionCardState extends ConsumerState<SessionCard> {
   bool _flipped = false;
+
+  Future<void> _playPronunciation() {
+    // 在线优先 + 离线包兜底：播放失败由服务内部静默记录，不打断学习节奏
+    // （TECH_DOC §9.1）；播放不阻塞 UI（unawaited）。
+    return ref
+        .read(audioPlaybackServiceProvider)
+        .play(
+          wordbookId: widget.wordbookId,
+          audioKey: widget.word.audioKey,
+          audioUrl: widget.word.audioUrl,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,10 +80,10 @@ class _SessionCardState extends State<SessionCard> {
               ),
             ),
             const SizedBox(height: 16),
-            // 发音占位：音频未接入前置灰（TECH_DOC §9.1 在线优先属后续迭代）。
+            // 发音按钮：发音开关关闭或无可用播放源时为 no-op（§9.1）。
             IconButton(
-              onPressed: null,
-              tooltip: l10n.audioUnavailable,
+              onPressed: () => unawaited(_playPronunciation()),
+              tooltip: l10n.audioPlay,
               icon: const Icon(Icons.volume_up_outlined),
             ),
             const Spacer(),

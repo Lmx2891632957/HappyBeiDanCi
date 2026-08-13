@@ -326,6 +326,30 @@ abstract class AppLocalizations {
   /// **'Audio not available yet'**
   String get audioUnavailable;
 
+  /// 卡片发音按钮提示
+  ///
+  /// In en, this message translates to:
+  /// **'Play pronunciation'**
+  String get audioPlay;
+
+  /// 离线发音包前台服务通知标题
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading pronunciation pack'**
+  String get audioDownloadNotificationTitle;
+
+  /// 离线发音包前台服务通知正文
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading audio; offline playback available when finished'**
+  String get audioDownloadNotificationText;
+
+  /// 离线发音包前台服务通知频道名
+  ///
+  /// In en, this message translates to:
+  /// **'Pronunciation pack download'**
+  String get audioDownloadNotificationChannelName;
+
   /// No description provided for @resultsTitle.
   ///
   /// In en, this message translates to:
