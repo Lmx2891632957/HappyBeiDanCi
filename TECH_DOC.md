@@ -733,19 +733,23 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 >   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
 >   完成，崩溃回滚不产生半升级状态。
 
-> 首装流程（2026-08-13 单元 6 落地时新增，`lib/data/sources/
-> wordbook_installer.dart`）：
+> 首装与升级流程（2026-08-13 单元 6 落地首装；2026-08-15 v1.1 起支持升级，
+> `lib/data/sources/wordbook_installer.dart`）：
 > - **触发**：应用启动后台异步（`main()` 后 `unawaited`）与今日任务页
->   「无词库」重试入口；`settings.wordbook_version` 非空即视为已装，幂等跳过；
->   并发触发经实例级 in-flight Future 串行化，避免双导入。
+>   「无词库」重试入口；并发触发经实例级 in-flight Future 串行化，避免双导入。
+> - **版本判定**：`WordbookInstaller.defaultLatestVersion`（当前 `1.1`，随发布
+>   手动维护，多词书/自动版本探测见 M2 增强）与 `settings.wordbook_version`
+>   比较：相等 → 幂等跳过；未装或落后（如 v1.0 → v1.1）→ 走下载导入升级，
+>   升级复用导入器备份/word_id 重映射（§8.2 导入口径），失败保留旧词库、
+>   下次启动重试，不影响已装用户学习。
 > - **流程**：拉取发布基址 `manifest.json`（§9.2 同一产物基址）→ 下载
 >   `artifacts.wordbook_db` 对应 DB 文件到 `<应用私有目录>/wordbooks/
 >   <版本>.db` → SHA-256 校验（`Sha256Utils` 流式哈希，失败删除半包）→
 >   `WordbookImporter.importFromFile`（校验/备份/整体替换/remap，§8.2 导入
 >   口径，版本键由导入器写入）→ 成功后按新版本调度发音包下载（§9.2 触发）。
 > - **失败语义**：下载/校验/导入任一步失败不产生半装状态（导入同事务），
->   应用显示「无词库」并允许重试；在线兜底不涉及（词库是核心前置，失败仅
->   影响新装体验，不影响已装用户升级）。
+>   应用显示「无词库」并允许重试；升级失败保留旧词库与版本键，不影响
+>   已装用户学习。
 
 ### 8.3 新词学习顺序（乱序的确定性）
 
@@ -1021,8 +1025,9 @@ flowchart LR
 | 存储 | WAL 模式、单写连接；`daily_stats` 按天 upsert |
 | 内存 | 例句/释义 JSON 惰性解析；音频只保留当前会话 LRU |
 
-> 单元 6 收口（2026-08-13）：词库首装下载/导入在 `main()` 后 `unawaited`
-> 异步执行，不阻塞首帧渲染与今日页骨架（§8.2 首装流程）；「启动到首卡」
+> 单元 6 收口（2026-08-13；v1.1 起含升级检测）：词库首装/升级下载与导入在
+> `main()` 后 `unawaited` 异步执行，不阻塞首帧渲染与今日页骨架
+> （§8.2 首装与升级流程）；「启动到首卡」
 > 计时口径为**已装词库**场景（release 包冷启动 → 首张卡片），首装场景
 > 受网络与导入耗时影响不纳入该指标（PRD §8 T-03 面向日常使用）。
 
@@ -1168,6 +1173,7 @@ flowchart LR
 | 首次启动引导（onboarding_done） | false（完成 Onboarding 后置 true） | 首启路由判定（§5.1），键名 `onboarding_done` |
 | 发音开关（pronunciation_enabled） | true | F7，关闭后播放服务不发声（§9.4） |
 | 蜂窝下载离线包（audio_download_on_cellular） | false | F5，默认仅 Wi-Fi/非计费网络自动下载（§9.2） |
+| 词库当前发布版本（defaultLatestVersion） | 1.1 | 与内容管线发布号对齐；发布新词库时同步更新（§8.2） |
 | 离线包发布基址 | `https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/` | TD-11；换对象存储只改此常量（§9.2） |
 | 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
 | 界面语言（language） | ''（跟随系统） | 简体中文 / English 切换（PRD F7）；选择后存 `zh`/`en`，键名 `language` |
