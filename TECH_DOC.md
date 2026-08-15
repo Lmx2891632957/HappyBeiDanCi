@@ -244,6 +244,16 @@ test/
    - 实现：今日页通过 `SettingsRepository.load` 读设置、`WordbookRepository` 取默认
      词书与剩余新词、`UserWordRepository.getDueWords` 取到期词（按当前词书过滤）后，
      交 `DefaultDailyPlanCalculator` 计算；结果仅用于展示与构建会话入口，不落库。
+   - 首页展示口径（2026-08-15 修复）：卡片"待学新词" = 今日剩余待学新词 =
+     max(0, 计划 `new_word_count` − 当日 `daily_stats.new_count`)，完成每日目标后
+     归零，而不是始终显示整日计划量；同日新增"今日已学单词：xx 个"展示（数据源
+     同上 `daily_stats`）。计算收敛在纯逻辑
+     `DailyCheckinCalculator.remainingNewWordsToday`（§5.5 共用）。
+   - 目标完成后"再学一组"（2026-08-15 产品确认）：今日剩余待学新词为 0 且词书
+     仍有未学词时，"开始学习"按钮保持可点，点击弹出确认
+     「今日学习任务已完成，是否再学习一组单词？」；确认后开一组学习会话，
+     每组词数 = min(每日目标, 词书剩余新词)，学习/统计口径与常规会话一致
+     （完成页判定不受影响，超学视为目标达成）。
 4. 若存在未完成的会话快照（T-05），进入时提示"继续上次未完成的学习"，恢复原队列。
    - `SessionRepository.loadAll` 按 `updated_at` 降序返回未完成快照（最新会话优先）；
      MVP 多快照并存时仅提供最近一个“继续”入口，恢复后沿用该快照的会话类型与队列。
@@ -424,6 +434,9 @@ stateDiagram-v2
 - 口径说明：复习计数含会话内重排的重复出现（驱动按已消费卡数累加，§5.4），
   因此“完成整场计划队列”后必然满足 `review_count ≥ 计划 review_count`；
   顺延词因重算计划时仍到期但未进入队列（数量 ≤ 软上限），同样不阻塞判定。
+- 剩余进度共用口径：完成页"还差 N 个新词"与首页"待学新词"卡片共用
+  `DailyCheckinCalculator.remainingNewWordsToday(plan, stats)`（2026-08-15，
+  §5.1 首页展示口径），避免两处各自计算导致显示不一致。
 
 ---
 
@@ -437,6 +450,10 @@ stateDiagram-v2
 复习数   = min(len(复习队列), reviewCap)   // 默认 300，可调/关闭
 顺延     = len(复习队列) - 复习数           // 保持原 due_date，次日自然排在最前
 ```
+
+> 首页展示口径：卡片"待学新词"为**今日剩余量**（§5.1），即
+> max(0, 计划 `new_word_count` − 当日 `daily_stats.new_count`），非计划量本身；
+> 计划量仍按本公式计算并用于完成页打卡判定（§5.5）。
 
 实现为纯逻辑，不读写数据库：`dailyGoal`、词书剩余新词数、到期词列表
 （`due_date <= 今日结束`，由仓储查询）、`reviewCap` 与"今日零点"（见 6.2）
