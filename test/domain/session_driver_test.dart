@@ -4,18 +4,14 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:happy_bei_dan_ci/domain/models/daily_stats.dart';
-import 'package:happy_bei_dan_ci/domain/models/review_log.dart';
 import 'package:happy_bei_dan_ci/domain/models/user_word.dart';
 import 'package:happy_bei_dan_ci/domain/scheduling/fsrs_scheduler.dart';
-import 'package:happy_bei_dan_ci/domain/services/review_log_repository.dart';
-import 'package:happy_bei_dan_ci/domain/services/session_repository.dart';
-import 'package:happy_bei_dan_ci/domain/services/stats_repository.dart';
-import 'package:happy_bei_dan_ci/domain/services/user_word_repository.dart';
 import 'package:happy_bei_dan_ci/domain/sessions/default_session_state_machine.dart';
 import 'package:happy_bei_dan_ci/domain/sessions/session_driver.dart';
 import 'package:happy_bei_dan_ci/domain/sessions/session_snapshot.dart';
 import 'package:happy_bei_dan_ci/domain/sessions/session_state_machine.dart';
+
+import '../helpers/fake_session_repos.dart';
 
 void main() {
   group('评分落库与队列推进', () {
@@ -139,6 +135,68 @@ void main() {
       );
     });
 
+    test('interrupt 后同实例 resume()：Paused → Showing，恢复后继续评分不报错', () async {
+      // 会话内恢复（切后台→切回前台，SessionResumed）：与跨实例恢复不同，
+      // 状态机内存队列即权威，无需重新读库；恢复后评分照常推进。
+      final h = _buildHarness();
+      h.driver.startNewSession(
+        sessionId: 's',
+        type: SessionType.review,
+        wordbookId: 3,
+        wordIds: const [1, 2, 3],
+      );
+      for (final wordId in [1, 2, 3]) {
+        _seedReviewWord(userWords: h.userWords, wordbookId: 3, wordId: wordId);
+      }
+      h.driver.fetchCard(); // showing 1
+      await h.driver.interrupt(); // paused（快照 position=0，剩余 [1,2,3]）
+      expect(h.driver.phase, SessionPhase.paused);
+      expect(h.sessions.snapshots['s']!.position, 0);
+
+      h.driver.resume();
+      expect(h.driver.phase, SessionPhase.showing);
+      expect(h.driver.currentWordId, 1);
+
+      // 恢复后继续评分：队列推进、调度落库正常，不抛 StateError。
+      final result = await h.driver.rate(Rating.good);
+      expect(result.persistFailures, 0);
+      expect(h.driver.phase, SessionPhase.fetching);
+      expect(h.driver.fetchCard(), 2);
+      // 预置复习词 reps=2，评分后按调度 +1。
+      expect(h.userWords.rows[(0, 3, 1)]!.reps, 3);
+    });
+
+    test('interrupt 后队列为空：resume() 进入 Fetching，等待 finish 完成', () async {
+      final h = _buildHarness();
+      h.driver.startNewSession(
+        sessionId: 's',
+        type: SessionType.learning,
+        wordbookId: 1,
+        wordIds: const [1],
+      );
+      h.driver.fetchCard();
+      await h.driver.rate(Rating.good); // fetching 且队列为空
+      await h.driver.interrupt();
+      expect(h.driver.phase, SessionPhase.paused);
+
+      h.driver.resume();
+      expect(h.driver.phase, SessionPhase.fetching);
+      await h.driver.finish();
+      expect(h.sessions.deletedIds, ['s']);
+    });
+
+    test('resume() 仅允许在 Paused：活动阶段调用抛 StateError', () {
+      final h = _buildHarness();
+      h.driver.startNewSession(
+        sessionId: 's',
+        type: SessionType.learning,
+        wordbookId: 1,
+        wordIds: const [1],
+      );
+      h.driver.fetchCard(); // showing
+      expect(() => h.driver.resume(), throwsStateError);
+    });
+
     test('interrupt 快照保存失败：向上抛出，不静默吞掉；可重试保存', () async {
       final h = _buildHarness();
       h.driver.startNewSession(
@@ -191,7 +249,7 @@ void main() {
     test('daily_stats 合并：同日先学习后复习，计数累加不覆盖', () async {
       // 状态机单次会话（Done 后不可复用），同日两会话用两个驱动实例、
       // 共享同一 stats 仓储验证合并口径。
-      final stats = _FakeStatsRepository();
+      final stats = FakeStatsRepository();
       final h1 = _buildHarness(sharedStats: stats);
       // 学习会话 2 词。
       h1.driver.startNewSession(
@@ -392,21 +450,21 @@ void main() {
 /// 测试装配：真实状态机 + 确定性假调度器 + 内存假仓储。
 ({
   SessionDriver driver,
-  _FakeUserWordRepository userWords,
-  _FakeReviewLogRepository reviewLogs,
-  _FakeSessionRepository sessions,
-  _FakeStatsRepository stats,
-  _FakeScheduler scheduler,
+  FakeUserWordRepository userWords,
+  FakeReviewLogRepository reviewLogs,
+  FakeSessionRepository sessions,
+  FakeStatsRepository stats,
+  FakeScheduler scheduler,
   List<String> logMessages,
   DateTime fixedNow,
 })
-_buildHarness({double intervalDays = 1, _FakeStatsRepository? sharedStats}) {
+_buildHarness({double intervalDays = 1, FakeStatsRepository? sharedStats}) {
   final fixedNow = DateTime(2026, 8, 12, 10, 30);
-  final userWords = _FakeUserWordRepository();
-  final reviewLogs = _FakeReviewLogRepository();
-  final sessions = _FakeSessionRepository();
-  final stats = sharedStats ?? _FakeStatsRepository();
-  final scheduler = _FakeScheduler(intervalDays: intervalDays);
+  final userWords = FakeUserWordRepository();
+  final reviewLogs = FakeReviewLogRepository();
+  final sessions = FakeSessionRepository();
+  final stats = sharedStats ?? FakeStatsRepository();
+  final scheduler = FakeScheduler(intervalDays: intervalDays);
   final logMessages = <String>[];
   final driver = SessionDriver(
     stateMachine: DefaultSessionStateMachine(),
@@ -433,7 +491,7 @@ _buildHarness({double intervalDays = 1, _FakeStatsRepository? sharedStats}) {
 
 /// 预置 review 会话所需的用户词状态（复习词已有一行 user_words）。
 void _seedReviewWord({
-  required _FakeUserWordRepository userWords,
+  required FakeUserWordRepository userWords,
   required int wordbookId,
   required int wordId,
 }) {
@@ -450,159 +508,4 @@ void _seedReviewWord({
     lapses: 0,
     lastReviewAt: DateTime(2026, 8, 1),
   );
-}
-
-/// 内存版用户词仓储：记录调用并可注入失败次数（重试口径测试用）。
-class _FakeUserWordRepository implements UserWordRepository {
-  final Map<(int, int, int), UserWord> rows = {};
-  int upsertCalls = 0;
-  int failNextUpserts = 0;
-
-  @override
-  Future<List<UserWord>> getDueWords({
-    required DateTime todayEnd,
-    int? limit,
-  }) async => throw UnimplementedError('本测试不使用');
-
-  @override
-  Future<UserWord?> getWord({
-    required int userId,
-    required int wordbookId,
-    required int wordId,
-  }) async => rows[(userId, wordbookId, wordId)];
-
-  @override
-  Future<void> upsert(UserWord word) async {
-    upsertCalls++;
-    if (failNextUpserts > 0) {
-      failNextUpserts--;
-      throw Exception('simulated upsert failure');
-    }
-    rows[(word.userId, word.wordbookId, word.wordId)] = word;
-  }
-
-  @override
-  Future<List<UserWord>> getAll() async =>
-      throw UnimplementedError('本测试不使用');
-}
-
-/// 内存版复习日志仓储。
-class _FakeReviewLogRepository implements ReviewLogRepository {
-  final List<ReviewLog> logs = [];
-  int addCalls = 0;
-  int failNextAdds = 0;
-
-  @override
-  Future<void> add(ReviewLog log) async {
-    addCalls++;
-    if (failNextAdds > 0) {
-      failNextAdds--;
-      throw Exception('simulated add failure');
-    }
-    logs.add(log);
-  }
-
-  @override
-  Future<List<ReviewLog>> getLogs({DateTime? from, DateTime? to}) async =>
-      throw UnimplementedError('本测试不使用');
-}
-
-/// 内存版会话快照仓储。
-class _FakeSessionRepository implements SessionRepository {
-  final Map<String, SessionSnapshot> snapshots = {};
-  final List<String> savedIds = [];
-  final List<String> deletedIds = [];
-  int failNextSaves = 0;
-  int failNextDeletes = 0;
-
-  @override
-  Future<void> save(SessionSnapshot snapshot) async {
-    savedIds.add(snapshot.sessionId);
-    if (failNextSaves > 0) {
-      failNextSaves--;
-      throw Exception('simulated save failure');
-    }
-    snapshots[snapshot.sessionId] = snapshot;
-  }
-
-  @override
-  Future<SessionSnapshot?> load(String sessionId) async => snapshots[sessionId];
-
-  @override
-  Future<List<SessionSnapshot>> loadAll() async => snapshots.values.toList();
-
-  @override
-  Future<void> delete(String sessionId) async {
-    deletedIds.add(sessionId);
-    if (failNextDeletes > 0) {
-      failNextDeletes--;
-      throw Exception('simulated delete failure');
-    }
-    snapshots.remove(sessionId);
-  }
-}
-
-/// 内存版每日统计仓储。
-class _FakeStatsRepository implements StatsRepository {
-  final Map<String, DailyStats> byDay = {};
-  final List<DailyStats> upserted = [];
-
-  @override
-  Future<DailyStats?> getByDay(String day) async => byDay[day];
-
-  @override
-  Future<void> upsert(DailyStats stats) async {
-    byDay[stats.day] = stats;
-    upserted.add(stats);
-  }
-}
-
-/// 确定性假调度器：Again 停留在学习/重学，其余毕业为 Review；
-/// 固定间隔 [intervalDays]，便于断言驱动写入 user_words/review_logs 的字段。
-class _FakeScheduler implements FsrsScheduler {
-  _FakeScheduler({required this.intervalDays});
-
-  final double intervalDays;
-  final List<CardState> cardInputs = [];
-  final List<Rating> ratingInputs = [];
-
-  @override
-  FsrsParameters get parameters => const FsrsParameters();
-
-  @override
-  SchedulingState next(CardState card, Rating rating, {required DateTime now}) {
-    cardInputs.add(card);
-    ratingInputs.add(rating);
-    final state = switch ((card.state, rating)) {
-      (WordLearningState.review, Rating.again) => WordLearningState.relearning,
-      (WordLearningState.relearning, Rating.again) =>
-        WordLearningState.relearning,
-      (_, Rating.again) => WordLearningState.learning,
-      _ => WordLearningState.review,
-    };
-    return SchedulingState(
-      card: CardState(
-        state: state,
-        stability: card.stability + 1,
-        difficulty: card.difficulty + 0.5,
-        dueDate: now.add(
-          Duration(
-            days: intervalDays.round(),
-            minutes: rating == Rating.again ? 10 : 0,
-          ),
-        ),
-        reps: card.reps + 1,
-        lapses:
-            card.lapses +
-            (card.state == WordLearningState.review && rating == Rating.again
-                ? 1
-                : 0),
-        lastReviewAt: now,
-        elapsedDays: card.elapsedDaysAt(now)?.toDouble(),
-        scheduledDays: intervalDays,
-      ),
-      intervalDays: intervalDays,
-      retrievability: 0.9,
-    );
-  }
 }

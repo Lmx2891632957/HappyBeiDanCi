@@ -17,7 +17,8 @@ import 'session_state_machine.dart';
 /// 事件映射：startNewSession/resumeSession → SessionStarted；fetchCard →
 /// CardFetched（折叠 Requeue→Fetching→Showing）；rate → CardRated → FSRS
 /// 调度 + 落库 → RatingCommitted；interrupt → SessionInterrupted →
-/// SessionRepository.save；finish → SessionFinished → 删快照 + daily_stats。
+/// SessionRepository.save；resume（会话内恢复）→ SessionResumed；finish →
+/// SessionFinished → 删快照 + daily_stats。
 class SessionDriver {
   SessionDriver({
     required this.stateMachine,
@@ -100,6 +101,19 @@ class SessionDriver {
     _wordbookId = wordbookId;
     _correctCount = 0;
     _finalize = null;
+  }
+
+  /// 会话内恢复（Paused → Showing/Fetching）：退后台 interrupt 后切回前台时
+  /// 调用，同一驱动实例内用状态机自产快照重建队列（SessionResumed，§5.4）。
+  ///
+  /// 与 [resumeSession] 的区别：后者是跨实例/跨页面恢复（Idle → Fetching，
+  /// `SessionStarted.resume`，快照由调用方经 SessionRepository.load 取得）；
+  /// 本方法要求状态机处于 Paused（_start 仅允许从 Idle 发起，TECH_DOC §5.4），
+  /// 因此不能复用 SessionStarted.resume。事件与语义以状态机契约为准，
+  /// 其余阶段调用抛 [StateError]。
+  void resume() {
+    _requireSession();
+    stateMachine.handle(const SessionResumed());
   }
 
   /// 取下一张卡：把 Requeue→Fetching 与 Fetching→Showing 两次 CardFetched
