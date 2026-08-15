@@ -204,41 +204,49 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _SectionLabel(l10n.settingsAppearanceSection),
                 ListTile(
                   title: Text(l10n.settingsLanguage),
-                  trailing: SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment(
-                        value: '',
-                        label: Text(l10n.settingsLanguageSystem),
+                  // 分段按钮放在 subtitle 可占满整行宽度，避免 trailing 窄约束
+                  // 把选项挤成竖排（2026-08-15 真机反馈修复）。
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: '',
+                          label: Text(l10n.settingsLanguageSystem),
+                        ),
+                        const ButtonSegment(value: 'zh', label: Text('中文')),
+                        const ButtonSegment(value: 'en', label: Text('English')),
+                      ],
+                      selected: {settings.language},
+                      onSelectionChanged: (selection) => _save(
+                        settings.copyWith(language: selection.first),
                       ),
-                      const ButtonSegment(value: 'zh', label: Text('中文')),
-                      const ButtonSegment(value: 'en', label: Text('English')),
-                    ],
-                    selected: {settings.language},
-                    onSelectionChanged: (selection) => _save(
-                      settings.copyWith(language: selection.first),
                     ),
                   ),
                 ),
                 ListTile(
                   title: Text(l10n.settingsDarkMode),
-                  trailing: SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment(
-                        value: 'system',
-                        label: Text(l10n.settingsDarkSystem),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'system',
+                          label: Text(l10n.settingsDarkSystem),
+                        ),
+                        ButtonSegment(
+                          value: 'light',
+                          label: Text(l10n.settingsDarkLight),
+                        ),
+                        ButtonSegment(
+                          value: 'dark',
+                          label: Text(l10n.settingsDarkDark),
+                        ),
+                      ],
+                      selected: {settings.themeMode},
+                      onSelectionChanged: (selection) => _save(
+                        settings.copyWith(themeMode: selection.first),
                       ),
-                      ButtonSegment(
-                        value: 'light',
-                        label: Text(l10n.settingsDarkLight),
-                      ),
-                      ButtonSegment(
-                        value: 'dark',
-                        label: Text(l10n.settingsDarkDark),
-                      ),
-                    ],
-                    selected: {settings.themeMode},
-                    onSelectionChanged: (selection) => _save(
-                      settings.copyWith(themeMode: selection.first),
                     ),
                   ),
                 ),
@@ -276,14 +284,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       children: [
         ListTile(
           title: Text(l10n.settingsDailyGoal),
-          trailing: SegmentedButton<int>(
-            segments: [
-              for (final goal in AppConstants.dailyGoalOptions)
-                ButtonSegment(value: goal, label: Text('$goal')),
-            ],
-            selected: {settings.dailyNewWords},
-            onSelectionChanged: (selection) => _save(
-              settings.copyWith(dailyNewWords: selection.first),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SegmentedButton<int>(
+              segments: [
+                for (final goal in AppConstants.dailyGoalOptions)
+                  ButtonSegment(value: goal, label: Text('$goal')),
+              ],
+              selected: {settings.dailyNewWords},
+              onSelectionChanged: (selection) => _save(
+                settings.copyWith(dailyNewWords: selection.first),
+              ),
             ),
           ),
         ),

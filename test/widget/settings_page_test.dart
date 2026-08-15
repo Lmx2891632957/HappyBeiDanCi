@@ -187,6 +187,37 @@ void main() {
     expect(find.text('ECDICT (MIT)'), findsOneWidget);
     expect(find.text('Tatoeba English sentences (CC BY 2.0 FR)'), findsOneWidget);
   });
+
+  testWidgets('手机尺寸下每日新词数/界面语言/深色模式分段控件横排占满行宽（回归：2026-08-15 真机竖排反馈）', (
+    tester,
+  ) async {
+    // 真机窄屏（约 360dp）复现条件：选项被 ListTile trailing 窄约束挤成竖排。
+    await tester.binding.setSurfaceSize(const Size(360, 690));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await openSettings(tester);
+
+    final goal = find.byType(SegmentedButton<int>);
+    final language = find.byType(SegmentedButton<String>).first;
+    final darkMode = find.byType(SegmentedButton<String>).last;
+
+    await scrollTo(tester, goal);
+    final goalSize = tester.getSize(goal);
+    expect(goalSize.width, greaterThan(200), reason: '每日新词数选项应横排占满行宽');
+    expect(goalSize.height, lessThan(80), reason: '每日新词数选项不应竖排堆叠');
+
+    // 界面语言/深色模式在外观区，滚到底后两个分段控件会同时构建。
+    await tester.fling(find.byType(Scrollable).last, const Offset(0, -2000), 3000);
+    await tester.pumpAndSettle();
+    expect(language, findsWidgets, reason: '界面语言分段控件应已构建');
+    final languageSize = tester.getSize(language);
+    expect(languageSize.width, greaterThan(200), reason: '界面语言选项应横排占满行宽');
+    expect(languageSize.height, lessThan(80), reason: '界面语言选项不应竖排堆叠');
+
+    expect(darkMode, findsWidgets, reason: '深色模式分段控件应已构建');
+    final darkModeSize = tester.getSize(darkMode);
+    expect(darkModeSize.width, greaterThan(200), reason: '深色模式选项应横排占满行宽');
+    expect(darkModeSize.height, lessThan(80), reason: '深色模式选项不应竖排堆叠');
+  });
 }
 
 class _FakeReminderScheduler implements ReminderScheduler {
