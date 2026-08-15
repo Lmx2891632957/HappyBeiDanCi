@@ -154,6 +154,18 @@
   },
   "sessionRetry": "Retry",
   "cardTapToFlip": "Tap the card to see the meaning",
+  "cardExampleLabel": "Example",
+  "@cardExampleLabel": {
+    "description": "Label of the example section on the card back"
+  },
+  "cardExampleExpand": "Show full example",
+  "@cardExampleExpand": {
+    "description": "Tooltip/hint to expand the example on the card back"
+  },
+  "cardExampleCollapse": "Collapse example",
+  "@cardExampleCollapse": {
+    "description": "Tooltip/hint to collapse the example on the card back"
+  },
   "rateAgain": "Don't know",
   "rateHard": "Not sure",
   "rateGood": "Know it",
