@@ -20,11 +20,13 @@ import '../data/sources/wordbook_installer.dart';
 import '../data/sources/wordbook_importer.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/daily_plan.dart';
+import '../domain/models/daily_stats.dart';
 import '../domain/models/wordbook.dart';
 import '../domain/scheduling/fsrs/fsrs_engine.dart';
 import '../domain/scheduling/fsrs_scheduler.dart';
 import '../domain/services/daily_plan_calculator.dart';
 import '../domain/services/default_daily_plan_calculator.dart';
+import '../domain/services/daily_checkin_calculator.dart';
 import '../domain/services/audio_pack_repository.dart';
 import '../domain/services/review_log_repository.dart';
 import '../domain/services/session_repository.dart';
@@ -171,6 +173,7 @@ class TodayPlan {
     required this.wordbook,
     required this.plan,
     required this.remainingNewWords,
+    required this.todayStats,
   });
 
   final AppSettings settings;
@@ -183,6 +186,17 @@ class TodayPlan {
 
   /// 词书剩余新词数（供完成页"明日预告"估算）。
   final int remainingNewWords;
+
+  /// 当日统计（含本场会话由 SessionDriver.finish 累加的计数；无记录为
+  /// null）。首页据此展示"今日已学单词"与"剩余待学新词"（TECH_DOC §5.5）。
+  final DailyStats? todayStats;
+
+  /// 今日剩余待学新词 = 计划新词数 − 今日已学数（完成目标后归零，
+  /// 首页"待学新词"卡片按此展示；TECH_DOC §5.5 修复口径）。
+  int get remainingNewWordsToday => DailyCheckinCalculator.remainingNewWordsToday(
+    plan: plan,
+    stats: todayStats ?? const DailyStats(day: ''),
+  );
 }
 
 /// 今日计划（TECH_DOC §5.1/§6.1 数据流）：
@@ -200,6 +214,7 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
       wordbook: null,
       plan: const DailyPlan(newWordCount: 0, reviewQueue: [], deferredCount: 0),
       remainingNewWords: 0,
+      todayStats: null,
     );
   }
 
@@ -227,11 +242,16 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
         cap: settings.reviewCap,
         todayStart: todayStart,
       );
+  final day = TimeUtils.localDayKey(now);
+  final todayStats = await ref
+      .watch(statsRepositoryProvider)
+      .getByDay(day);
   return TodayPlan(
     settings: settings,
     wordbook: book,
     plan: plan,
     remainingNewWords: remainingNew,
+    todayStats: todayStats,
   );
 });
 

@@ -101,6 +101,14 @@
   },
   "homeNewWordsLabel": "New words",
   "homeReviewLabel": "Due reviews",
+  "homeLearnedToday": "Learned today: {count} words",
+  "@homeLearnedToday": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeDeferredHint": "{count} more words deferred to tomorrow",
   "@homeDeferredHint": {
     "placeholders": {

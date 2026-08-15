@@ -157,7 +157,10 @@ class _HomeContent extends StatelessWidget {
       return _WordbookUnavailable(l10n: l10n, onRetry: onRetryWordbook);
     }
     final plan = today.plan;
-    final newCount = plan.newWordCount;
+    // 首页"待学新词"展示今日剩余量（计划 − 今日已学），完成目标后归零；
+    // 不复用 plan.newWordCount（那是整日计划量，会永久显示每日目标）。
+    final newCount = today.remainingNewWordsToday;
+    final learnedToday = today.todayStats?.newCount ?? 0;
     final reviewCount = plan.reviewCount;
     final session = sessionsAsync.valueOrNull?.firstOrNull;
 
@@ -186,8 +189,16 @@ class _HomeContent extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.homeLearnedToday(learnedToday),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         if (plan.deferredCount > 0) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             l10n.homeDeferredHint(plan.deferredCount),
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -203,7 +214,7 @@ class _HomeContent extends StatelessWidget {
           const SizedBox(height: 16),
         ],
         FilledButton(
-          onPressed: newCount > 0
+          onPressed: today.remainingNewWords > 0
               ? () => _startLearning(context, book.id, newCount)
               : null,
           child: Text(l10n.homeStartLearning),

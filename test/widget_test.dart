@@ -49,5 +49,7 @@ void main() {
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Due reviews'), findsOneWidget);
     expect(find.text('0'), findsOneWidget);
+    // 今日已学展示（未学习时为 0；文案为完整字符串，不与卡片数值 '0' 冲突）。
+    expect(find.text('Learned today: 0 words'), findsOneWidget);
   });
 }

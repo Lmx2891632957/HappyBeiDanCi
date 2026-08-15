@@ -110,6 +110,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeReviewLabel => 'Due reviews';
 
   @override
+  String homeLearnedToday(int count) {
+    return 'Learned today: $count words';
+  }
+
+  @override
   String homeDeferredHint(int count) {
     return '$count more words deferred to tomorrow';
   }

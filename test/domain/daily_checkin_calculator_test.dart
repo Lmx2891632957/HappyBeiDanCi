@@ -109,4 +109,59 @@ void main() {
       isTrue,
     );
   });
+
+  test('今日剩余待学新词：计划减已学，完成目标后归零', () {
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: plan,
+        stats: stats(),
+      ),
+      20,
+    );
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: plan,
+        stats: stats(newCount: 15),
+      ),
+      5,
+    );
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: plan,
+        stats: stats(newCount: 20),
+      ),
+      0,
+    );
+    // 超额学习不显示负数。
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: plan,
+        stats: stats(newCount: 25),
+      ),
+      0,
+    );
+  });
+
+  test('今日剩余待学新词：词书剩余不足时以计划量（min 已收敛）为准', () {
+    // 每日目标 20、词书仅剩 5 词 → 计划 5，未学时为 5。
+    const limitedPlan = DailyPlan(
+      newWordCount: 5,
+      reviewQueue: [],
+      deferredCount: 0,
+    );
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: limitedPlan,
+        stats: stats(),
+      ),
+      5,
+    );
+    expect(
+      DailyCheckinCalculator.remainingNewWordsToday(
+        plan: limitedPlan,
+        stats: stats(newCount: 5),
+      ),
+      0,
+    );
+  });
 }

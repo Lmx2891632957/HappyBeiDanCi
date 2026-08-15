@@ -107,6 +107,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeReviewLabel => '待复习';
 
   @override
+  String homeLearnedToday(int count) {
+    return '今日已学单词：$count个';
+  }
+
+  @override
   String homeDeferredHint(int count) {
     return '另有 $count 词顺延至明日';
   }

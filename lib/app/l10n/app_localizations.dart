@@ -266,6 +266,12 @@ abstract class AppLocalizations {
   /// **'Due reviews'**
   String get homeReviewLabel;
 
+  /// No description provided for @homeLearnedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Learned today: {count} words'**
+  String homeLearnedToday(int count);
+
   /// No description provided for @homeDeferredHint.
   ///
   /// In en, this message translates to:

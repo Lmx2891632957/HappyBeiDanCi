@@ -78,6 +78,14 @@
   },
   "homeNewWordsLabel": "待学新词",
   "homeReviewLabel": "待复习",
+  "homeLearnedToday": "今日已学单词：{count}个",
+  "@homeLearnedToday": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "homeDeferredHint": "另有 {count} 词顺延至明日",
   "@homeDeferredHint": {
     "placeholders": {

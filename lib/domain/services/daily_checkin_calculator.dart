@@ -20,4 +20,15 @@ abstract final class DailyCheckinCalculator {
     return stats.newCount >= plan.newWordCount &&
         stats.reviewCount >= plan.reviewCount;
   }
+
+  /// 今日剩余待学新词 = 计划新词数 − 今日已学数（已学满目标即归零，
+  /// 超出部分不显示为负数）。首页"待学新词"按此口径展示，保证完成
+  /// 每日目标后清空而不是始终显示整日计划量（2026-08-15 修复口径）。
+  static int remainingNewWordsToday({
+    required DailyPlan plan,
+    required DailyStats stats,
+  }) {
+    final remaining = plan.newWordCount - stats.newCount;
+    return remaining > 0 ? remaining : 0;
+  }
 }
