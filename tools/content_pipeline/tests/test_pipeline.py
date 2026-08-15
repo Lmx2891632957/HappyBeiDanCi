@@ -144,6 +144,10 @@ class IpaNormalizeTest(unittest.TestCase):
             "'eərəplein",
         )
 
+    def test_surrounding_slashes_stripped(self) -> None:
+        self.assertEqual(build_wordbook.normalize_ipa("/ˈstɹeɪndʒ/"), "ˈstreɪndʒ")
+        self.assertEqual(build_wordbook.normalize_ipa("/ˈɹɛd/"), "ˈrɛd")
+
     def test_empty_and_regular_ipa_unchanged(self) -> None:
         self.assertEqual(build_wordbook.normalize_ipa(""), "")
         self.assertEqual(
@@ -152,7 +156,7 @@ class IpaNormalizeTest(unittest.TestCase):
         )
 
     def test_idempotent(self) -> None:
-        src = "ˈɹɛd 'seilzg\u04d9:l '\u0454\u04d9r\u04d9plein"
+        src = "ˈɹɛd /ˈstɹeɪndʒ/ 'seilzg\u04d9:l '\u0454\u04d9r\u04d9plein"
         once = build_wordbook.normalize_ipa(src)
         self.assertEqual(build_wordbook.normalize_ipa(once), once)
 
@@ -188,14 +192,14 @@ class BuildWordbookTest(unittest.TestCase):
                     conn.execute(
                         "SELECT phonetic FROM words WHERE word='abandon'"
                     ).fetchone()[0],
-                    "/əˈbændən/",
+                    "əˈbændən",
                 )
                 # ipa-dict 音标同样归一化：ɹ（turned r）→ r。
                 self.assertEqual(
                     conn.execute(
                         "SELECT phonetic FROM words WHERE word='zebra'"
                     ).fetchone()[0],
-                    "/ˈzɛbrə/",
+                    "ˈzɛbrə",
                 )
                 # 例句署名与筛选（长句被剔除，book 取 2 条短句）
                 ex = conn.execute(

@@ -30,6 +30,7 @@ from . import common
 # - ɹ（U+0279，turned r，观感为"翻转的 r"）→ r（学习者词典惯例）；
 # - ә（U+04D9，西里尔 schwa）→ ə（U+0259，拉丁 schwa，ECDICT 上游编码污染）；
 # - є（U+0454，西里尔乌克兰 ye）→ e（同上）。
+# 另去除首尾 `/`：ipa-dict 原始数据自带 `/.../`，入库统一去掉，展示层再包一层。
 IPA_DISPLAY_REPLACEMENTS = {
     "\u0279": "r",
     "\u04d9": "\u0259",
@@ -41,6 +42,8 @@ def normalize_ipa(phonetic: str) -> str:
     """按 TECH_DOC §10.2 音标展示与入库规范归一化（幂等）。"""
     for src, dst in IPA_DISPLAY_REPLACEMENTS.items():
         phonetic = phonetic.replace(src, dst)
+    if len(phonetic) >= 2 and phonetic.startswith("/") and phonetic.endswith("/"):
+        phonetic = phonetic[1:-1]
     return phonetic
 
 

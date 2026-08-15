@@ -17,6 +17,11 @@ void main() {
       expect(normalizeIpaForDisplay("'єәrәplein"), "'eərəplein");
     });
 
+    test('ipa-dict 自带斜杠去除，避免展示层叠加成双斜杠', () {
+      expect(normalizeIpaForDisplay('/ˈstɹeɪndʒ/'), 'ˈstreɪndʒ');
+      expect(normalizeIpaForDisplay('/ˈɹɛd/'), 'ˈrɛd');
+    });
+
     test('空串、常规 IPA 与拉丁字符保持不变', () {
       expect(normalizeIpaForDisplay(''), '');
       const sample = 'ˈæpəɫ ˈθɛŋk ʃɪp ɑː ɔː ʊ ɪ ɛ ŋ ʒ ð ɡ ɝ ɚ ˌ';
