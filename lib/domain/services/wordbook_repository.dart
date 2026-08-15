@@ -24,6 +24,19 @@ abstract interface class WordbookRepository {
   /// “词书剩余新词”展示与每日计划计算（TECH_DOC §5.1/§6.1）。
   Future<int> countRemainingNewWords(int wordbookId);
 
+  /// 确保词书已完成首启乱序初始化（TD-06，幂等）。
+  ///
+  /// 首次调用以 `seed = hash(wordbookId, [installTime])`（安装时间近似为
+  /// 首次初始化时刻）生成 `shuffled` 序号并持久化（settings 记录种子与词书
+  /// 版本，TECH_DOC §8.3）；此后 `getWordsByBook` 按“频段 + shuffled 递增”
+  /// 取词，顺序不因重启/换天漂移。词库升级（wordbook_items 整体替换后
+  /// `shuffled` 回到词表顺序）时以已存种子重新乱序，学习顺序不漂回字母序。
+  /// 已初始化且版本一致时为 O(1) no-op。
+  Future<void> ensureShuffledOrder({
+    required int wordbookId,
+    required DateTime installTime,
+  });
+
   /// 批量按 ID 取词，返回顺序与 [wordIds] 一致（缺失的 ID 跳过）。
   ///
   /// 会话页卡片展示用：复习队列的词已学习、不在 [getWordsByBook] 结果内，

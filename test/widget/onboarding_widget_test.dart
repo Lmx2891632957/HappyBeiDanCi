@@ -136,10 +136,10 @@ void main() {
     final repo = DriftWordbookRepository(db);
     expect(await repo.getSkippedWordIds(1), {1});
     expect(await repo.countRemainingNewWords(1), 2);
-    expect(
-      (await repo.getWordsByBook(1)).map((w) => w.word),
-      ['word2', 'word3'],
-    );
+    // 今日页加载时已触发乱序（TD-06），剩余新词顺序不固定但只含未标记词。
+    final remaining = (await repo.getWordsByBook(1)).map((w) => w.word);
+    expect(remaining, hasLength(2));
+    expect(remaining.toSet(), {'word2', 'word3'});
   });
 
   testWidgets('引导保存失败：SnackBar 提示且不跳转，可重试保存', (tester) async {
