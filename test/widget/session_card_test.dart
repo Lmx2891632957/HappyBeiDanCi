@@ -169,4 +169,24 @@ void main() {
     expect(find.text('Example'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('换词后卡片重置回正面（翻面/例句展开态不跨词保留）', (tester) async {
+    final wordA = buildWord(id: 1, word: 'alpha', meaningCount: 2);
+    final wordB = buildWord(id: 2, word: 'beta');
+    await pumpCard(tester, wordA);
+
+    // 翻面并展开例句。
+    await flipCard(tester, 'alpha');
+    expect(find.text('Example'), findsOneWidget);
+    await tester.tap(find.text('Example'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.expand_less), findsOneWidget);
+
+    // 同一卡片位置换词：State 复用触发 didUpdateWidget，应回到正面且收起。
+    await pumpCard(tester, wordB);
+    await tester.pumpAndSettle();
+    expect(find.text('beta'), findsOneWidget);
+    expect(find.text('Example'), findsNothing);
+    expect(find.byIcon(Icons.volume_up_outlined), findsOneWidget);
+  });
 }

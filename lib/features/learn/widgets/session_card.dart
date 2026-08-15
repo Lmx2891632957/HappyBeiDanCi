@@ -43,8 +43,10 @@ class _SessionCardState extends ConsumerState<SessionCard> {
   @override
   void didUpdateWidget(SessionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 换词后重置例句展开状态，避免上一张卡的展开态带到下一张卡。
+    // 换词后重置卡片状态：回到正面并收起例句，避免上一张卡的翻面/展开态
+    // 带到下一张卡（每张新词卡应从"先看词"开始）。
     if (oldWidget.word.id != widget.word.id) {
+      _flipped = false;
       _exampleExpanded = false;
     }
   }
