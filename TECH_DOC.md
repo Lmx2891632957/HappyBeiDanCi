@@ -260,6 +260,13 @@ test/
    - M1 单词书假设：到期词按当前默认词书过滤在今日页完成；多词书支持需扩展
      `UserWordRepository.getDueWords` 按词书过滤（后续迭代）。
 
+> 中断恢复口径（2026-08-16 明确）：**会话进行中切后台→切回前台**（页面存活）
+> 的中断/恢复走状态机 `SessionResumed`（驱动 `resume`，同实例内存队列即权威，
+> 不重新读库，§5.4 驱动契约“生命周期中断/恢复”）；本节“下次进入时从快照
+> 恢复”是**跨实例**路径（`SessionStarted.resume`，快照经 `SessionRepository.load`
+> 取得）。两条路径独立：前者覆盖进程存活时的前台切换，后者覆盖进程被杀后
+> 重进的续学。
+
 ### 5.2 学习会话（新词）
 
 卡片流程：正面（单词 + 音标 + 发音按钮）→ 翻面（释义 1–3 条 + 例句 + 词根词缀可选）→ 三键反馈（认识/模糊/不认识）。
@@ -387,6 +394,12 @@ stateDiagram-v2
     评分时立即消费卡片，调度与持久化由驱动在两次事件之间完成）；
   - `interrupt` → `SessionInterrupted` → `SessionRepository.save`（同事务，
     §5.4 快照持久化）；
+  - `resume`（会话内恢复，2026-08-16 切后台续学修复新增）→ `SessionResumed`
+    （仅 Paused 允许；状态机按自产快照重建队列后进入 Showing/Fetching，
+    §5.4 状态图）。与 `resumeSession` 的区别：后者是跨实例/跨页面恢复
+    （Idle → `SessionStarted.resume`，快照由调用方经 `SessionRepository.load`
+    取得）；本方法用于同一驱动实例内"退后台 interrupt → 切回前台"的恢复，
+    状态机内存队列即权威，无需重新读库；
   - `finish` → `SessionFinished` → `SessionRepository.delete` +
     `StatsRepository` 合并写 daily_stats（全部完成后由调用方写 daily_stats，
     §5.4）。
@@ -403,6 +416,19 @@ stateDiagram-v2
     因为快照是恢复的唯一依据（TD-07），静默丢弃违反 T-05；
     已处于 Paused（保存失败后重试）时跳过状态机事件、直接重存快照，
     使中断保存可幂等重试；
+  - 生命周期中断/恢复（2026-08-16 修复"切后台返回后继续评分报错"时明确，
+    §5.1 中断恢复口径）：会话页退后台（`AppLifecycleState.paused/hidden`）
+    调用 `interrupt`（状态机转 Paused 并落库快照）；切回前台（`resumed`）
+    时若驱动处于 Paused，调用 `resume`（`SessionResumed`）后恢复展示队首卡
+    继续评分——页面存活时是**同一驱动实例内的恢复**，与"下次进入时从快照
+    跨实例恢复"（`resumeSession`）是两条独立路径。页面被销毁（进程被杀）
+    时无此路径，恢复依赖快照经 `resumeSession`；
+  - 评分与中断互斥（UI 层契约，2026-08-16 并发竞态修复时明确）：会话页保证
+    "进行中的评分先完成、再执行中断"——中断发起时若评分在途，先等待其完成
+    （评分后队列已推进，保存的快照才与落库一致），中断进行中禁用评分按钮；
+    避免中断停在 Rating 阶段造成"评分已落库、队列未推进"的部分提交
+    （恢复后同一卡需重复作答并重复写库）。该互斥在会话页实现，驱动/状态机
+    契约不变；
   - `finish`：先校验队列为空并触发 `SessionFinished`（完成数据在触发前捕获，
     因状态机进入 Done 后清空 position 等元数据），再删除快照（幂等），最后
     合并写 daily_stats；任一持久化失败向上抛出，驱动保留本次会话的完成数据，
