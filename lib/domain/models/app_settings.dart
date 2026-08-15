@@ -39,7 +39,6 @@ class AppSettings {
 
   /// 已安装词库内容版本（TECH_DOC §8.2；null 表示尚未导入发布版词库）。
   final String? wordbookVersion;
-
   /// 发音开关（TECH_DOC §9.4，F7；默认开启）。
   final bool pronunciationEnabled;
 

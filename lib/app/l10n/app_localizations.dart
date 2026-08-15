@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'No wordbook available (content pack not installed)'**
   String get homeNoWordbook;
 
+  /// No description provided for @homePreparingWordbook.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing wordbook…'**
+  String get homePreparingWordbook;
+
   /// No description provided for @homeWordbook.
   ///
   /// In en, this message translates to:

@@ -1,0 +1,54 @@
+name: Publish wordbook artifacts
+
+# 词库/音频发布产物 workflow（TECH_DOC §14.3，AGENTS §5.3）：
+# - workflow_dispatch：手动触发（include_tts 控制是否在 CI 内跑完整 Edge TTS，
+#   默认 false——TTS 耗时长且受隐式限流，通常在本机生成后由手动 runner 发布）；
+# - 推送 `wordbook-gaokao-3500-v*` 标签：以标签名为 release tag。
+# 产物：词库 DB + 音频 zip + manifest（版本与 SHA-256），与 App 代码版本解耦。
+on:
+  workflow_dispatch:
+    inputs:
+      include_tts:
+        description: "在 CI 内跑完整 Edge TTS（耗时长，默认关闭）"
+        required: true
+        default: false
+        type: boolean
+      release_tag:
+        description: "发布 tag（默认 wordbook-gaokao-3500-v1.0）"
+        required: true
+        default: "wordbook-gaokao-3500-v1.0"
+  push:
+    tags: ["wordbook-gaokao-3500-v*"]
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装内容管线依赖
+        run: pip install -r tools/content_pipeline/requirements.txt
+      - name: 执行内容管线（TTS 可选）
+        working-directory: tools/content_pipeline
+        run: |
+          python -m pipeline.main fetch
+          python -m pipeline.main align
+          python -m pipeline.main build
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.include_tts == true }}" = "true" ]; then
+            python -m pipeline.main tts
+          fi
+          python -m pipeline.main qa
+          python -m pipeline.main package
+      - name: 发布 GitHub Release（tag + 产物 + SHA-256 manifest）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}"
+          name: "词库产物 ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}"
+          body: |
+            由内容管线自动打包（TECH_DOC §10）：词库 DB、音频 zip 与 manifest。
+            manifest 内含逐产物 SHA-256，App 端下载时校验（§8.2 首装 / §9.2 音频包）。
+          files: |
+            tools/content_pipeline/output/*/*
+          fail_on_unmatched_files: false

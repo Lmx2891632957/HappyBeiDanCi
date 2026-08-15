@@ -676,6 +676,7 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 - 词库静态数据（words / wordbooks）以**发布版本 DB 文件**导入（见第 10 章），用户数据表独立；词库升级时做 `words` 表整体替换并保留 `word_id` 稳定性（以 word 文本 + 版本作为映射键）。
 - 数据导出：`review_logs` + `user_words` 导出为 CSV/JSON（设置页触发，系统分享面板输出），满足 F4"为用户未来迁移兜底"。
 
+<<<<<<< HEAD
 > 词库导入实现口径（2026-08-13 单元 2 落地时明确）：
 > - **包格式校验**：发布版 DB 必须含 `meta` 表且 `schema_version=1`、
 >   `wordlist_version` 非空，缺任一字段拒绝导入（防止拿错文件覆盖内容表）。
@@ -692,6 +693,8 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 > - **导入方式**：读取发布版 DB（sqlite3 只读）后经 Drift 批量事务写入
 >   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
 >   完成，崩溃回滚不产生半升级状态。
+=======
+>>>>>>> feature/m1-acceptance
 > 导出实现口径（2026-08-13 单元 4 落地时明确）：
 > - **入口**：设置页「数据导出」提供 CSV / JSON 两种格式，触发后生成临时文件
 >   并经 share_plus（Android `ACTION_SEND`）调起系统分享面板；文件写入
@@ -709,6 +712,39 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 > - **纯逻辑可测**：CSV/JSON 序列化器为纯 Dart（`lib/domain/services/
 >   data_export_formatter.dart`），文件写盘与分享由薄壳 `DataExporter`
 >   承担，测试覆盖序列化与写盘、分享调用注入桩。
+<<<<<<< HEAD
+=======
+> 词库导入实现口径（2026-08-13 单元 2 落地时明确）：
+> - **包格式校验**：发布版 DB 必须含 `meta` 表且 `schema_version=1`、
+>   `wordlist_version` 非空，缺任一字段拒绝导入（防止拿错文件覆盖内容表）。
+> - **版本记录**：`settings.wordbook_version` 记录当前内容版本（settings 为通用
+>   键值表，无 schema 变更）；重复导入同版本为幂等 no-op。
+> - **升级备份**：替换内容表前，先把 user_words / review_logs / sessions /
+>   session_items / daily_stats 全量导出为 JSON 备份文件
+>   （`<应用私有目录>/backups/wordbook_upgrade_backup_<旧版本>_<时间戳>.json`），
+>   备份失败则中止导入；备份文件保留不自动删除（人工可恢复）。
+> - **word_id 映射**：导入器按「word 文本」建立旧→新映射（发布包内 id 为文本
+>   哈希，跨版本稳定，§10.2）；新包仍存在的词 remap 用户行，已删除的词
+>   移除对应 user_words / session_items 行（复习日志保留原文 word_id 历史，
+>   可解析时同样 remap）。
+> - **导入方式**：读取发布版 DB（sqlite3 只读）后经 Drift 批量事务写入
+>   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
+>   完成，崩溃回滚不产生半升级状态。
+
+> 首装流程（2026-08-13 单元 6 落地时新增，`lib/data/sources/
+> wordbook_installer.dart`）：
+> - **触发**：应用启动后台异步（`main()` 后 `unawaited`）与今日任务页
+>   「无词库」重试入口；`settings.wordbook_version` 非空即视为已装，幂等跳过；
+>   并发触发经实例级 in-flight Future 串行化，避免双导入。
+> - **流程**：拉取发布基址 `manifest.json`（§9.2 同一产物基址）→ 下载
+>   `artifacts.wordbook_db` 对应 DB 文件到 `<应用私有目录>/wordbooks/
+>   <版本>.db` → SHA-256 校验（`Sha256Utils` 流式哈希，失败删除半包）→
+>   `WordbookImporter.importFromFile`（校验/备份/整体替换/remap，§8.2 导入
+>   口径，版本键由导入器写入）→ 成功后按新版本调度发音包下载（§9.2 触发）。
+> - **失败语义**：下载/校验/导入任一步失败不产生半装状态（导入同事务），
+>   应用显示「无词库」并允许重试；在线兜底不涉及（词库是核心前置，失败仅
+>   影响新装体验，不影响已装用户升级）。
+>>>>>>> feature/m1-acceptance
 
 ### 8.3 新词学习顺序（乱序的确定性）
 
@@ -943,6 +979,11 @@ flowchart LR
 | 存储 | WAL 模式、单写连接；`daily_stats` 按天 upsert |
 | 内存 | 例句/释义 JSON 惰性解析；音频只保留当前会话 LRU |
 
+> 单元 6 收口（2026-08-13）：词库首装下载/导入在 `main()` 后 `unawaited`
+> 异步执行，不阻塞首帧渲染与今日页骨架（§8.2 首装流程）；「启动到首卡」
+> 计时口径为**已装词库**场景（release 包冷启动 → 首张卡片），首装场景
+> 受网络与导入耗时影响不纳入该指标（PRD §8 T-03 面向日常使用）。
+
 ---
 
 ## 13. 安全、隐私与合规
@@ -997,8 +1038,29 @@ flowchart LR
 
 ### 14.3 CI 与发布
 
-- GitHub Actions：`flutter analyze` + `flutter test` + `integration_test`（Android 模拟器）+ 构建 release APK；
-- 词库产物发布走独立 workflow（内容管线），产物带版本号；App 内检查版本并提示更新离线包。
+- GitHub Actions（2026-08-13 单元 6 落地，`.github/workflows/`）：
+  - `ci.yml`：push / PR 触发，Ubuntu + Flutter stable（`subosito/flutter-action`
+    带缓存）：`flutter analyze` → `flutter test` → `flutter build apk --release`，
+    APK 经 `actions/upload-artifact` 供下载；集成测试（Android 模拟器）列入
+    M1 后续增强（当前以仓储/Widget 集成测试覆盖，§14.2 口径）。
+  - `publish-wordbook.yml`：`workflow_dispatch`（输入 `include_tts`，默认
+    false）或标签 `wordbook-gaokao-3500-v*` 触发；在自托管/手动 runner 上
+    执行内容管线（fetch → align → build → qa → package，TTS 可选因耗时长），
+    产物 `output/<包名>-v<版本>/`（词库 DB + 音频 zip + manifest）经
+    `softprops/action-gh-release` 发布到同名 tag 的 GitHub Release，带 SHA-256
+    校验信息；产物版本独立编号（§10 打包），与代码 tag 不混用（AGENTS §5.3）。
+- **M1 真机验收清单（手动，AGENTS §7 离线/续学验证要求）**：
+  1. 首次启动（有网）：词库自动安装 → Onboarding → 首卡；记录「点开 App 到
+     首张卡片」耗时（release 包，目标 < 2s，§12）。
+  2. 飞行模式：冷启动直达今日页；学习 3 词 → 复习（若有到期词）→ 完成页打卡
+     全流程不依赖网络；发音在离线包未就绪时静默（无崩溃）。
+  3. 中断续学：学习中切后台/杀进程 → 重开 → 「继续上次未完成的学习」恢复一致。
+  4. 发音：在线播放（Wi-Fi/蜂窝）、离线包下载进度与前台通知、断网后本地播放；
+     SHA-256 校验失败时自动重试不残留半包。
+  5. 通知：Android 13+ 首次开启提醒弹权限；拒绝后设置页出现系统设置引导；
+     厂商 ROM（小米/华为等）按系统提示加白「自启动/后台活动」后提醒正常。
+  6. 数据导出：设置页导出 CSV/JSON 经分享面板输出，文件可被 WPS/Excel 打开
+     且中文不乱码（UTF-8 BOM）。
 
 ---
 

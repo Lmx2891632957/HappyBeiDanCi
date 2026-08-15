@@ -90,11 +90,11 @@ void main() {
         reminderTime: '21:30',
         examDate: exam,
         timezone: 'Asia/Shanghai',
-        wordbookVersion: '1.0',
         pronunciationEnabled: false,
         audioDownloadOnCellular: true,
         language: 'en',
         themeMode: 'dark',
+        wordbookVersion: '1.0',
       ),
     );
     final loaded = await repo.load();
@@ -104,11 +104,11 @@ void main() {
     expect(loaded.reminderTime, '21:30');
     expect(loaded.examDate, exam);
     expect(loaded.timezone, 'Asia/Shanghai');
-    expect(loaded.wordbookVersion, '1.0');
     expect(loaded.pronunciationEnabled, isFalse);
     expect(loaded.audioDownloadOnCellular, isTrue);
     expect(loaded.language, 'en');
     expect(loaded.themeMode, 'dark');
+    expect(loaded.wordbookVersion, '1.0');
 
     // 存储层校验：reviewCap 关闭存 'off'、examDate 存 epoch 毫秒文本。
     final rows = await db.select(db.settings).get();

@@ -93,6 +93,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeNoWordbook => '暂无可用词书（词库包未安装）';
 
   @override
+  String get homePreparingWordbook => '正在准备词库…';
+
+  @override
   String homeWordbook(String name) {
     return '词书：$name';
   }

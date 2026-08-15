@@ -45,8 +45,92 @@ class HomePage extends ConsumerWidget {
           today: today,
           sessionsAsync: sessionsAsync,
           onRefreshSessions: () => ref.invalidate(unfinishedSessionsProvider),
+          onRetryWordbook: () => ref.invalidate(wordbookInstallProvider),
         ),
       ),
+    );
+  }
+}
+
+/// 词库不可用状态：安装中（准备进度）→ 完成（触发今日页重算）→ 失败可重试
+/// （TECH_DOC §8.2 首装流程）。
+class _WordbookUnavailable extends ConsumerStatefulWidget {
+  const _WordbookUnavailable({
+    required this.l10n,
+    required this.onRetry,
+  });
+
+  final AppLocalizations l10n;
+  final VoidCallback onRetry;
+
+  @override
+  ConsumerState<_WordbookUnavailable> createState() =>
+      _WordbookUnavailableState();
+}
+
+class _WordbookUnavailableState extends ConsumerState<_WordbookUnavailable> {
+  @override
+  void initState() {
+    super.initState();
+    // 首装完成后（返回值非 null）重算今日计划，词书即可用。
+    ref.listen(wordbookInstallProvider, (previous, next) {
+      if (next.hasValue && next.value != null) {
+        ref.invalidate(todayPlanProvider);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final install = ref.watch(wordbookInstallProvider);
+    return Center(
+      child: install.when(
+        loading: () => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(l10n.homePreparingWordbook),
+          ],
+        ),
+        error: (error, _) => _MessageWithRetry(
+          message: l10n.homeNoWordbook,
+          retryLabel: l10n.homeRetry,
+          onRetry: widget.onRetry,
+        ),
+        data: (_) => _MessageWithRetry(
+          message: l10n.homeNoWordbook,
+          retryLabel: l10n.homeRetry,
+          onRetry: widget.onRetry,
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageWithRetry extends StatelessWidget {
+  const _MessageWithRetry({
+    required this.message,
+    required this.retryLabel,
+    required this.onRetry,
+  });
+
+  final String message;
+  final String retryLabel;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+        FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+      ],
     );
   }
 }
@@ -57,18 +141,20 @@ class _HomeContent extends StatelessWidget {
     required this.today,
     required this.sessionsAsync,
     required this.onRefreshSessions,
+    required this.onRetryWordbook,
   });
 
   final AppLocalizations l10n;
   final TodayPlan today;
   final AsyncValue<List<SessionSnapshot>> sessionsAsync;
   final VoidCallback onRefreshSessions;
+  final VoidCallback onRetryWordbook;
 
   @override
   Widget build(BuildContext context) {
     final book = today.wordbook;
     if (book == null) {
-      return Center(child: Text(l10n.homeNoWordbook));
+      return _WordbookUnavailable(l10n: l10n, onRetry: onRetryWordbook);
     }
     final plan = today.plan;
     final newCount = plan.newWordCount;
