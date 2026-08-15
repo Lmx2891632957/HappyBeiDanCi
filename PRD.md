@@ -195,9 +195,15 @@
 |---|---|---|
 | 词表 | 教育部《高考英语考试大纲》附录词汇（约 3500 词） | 公开考纲文件；另用 ECDICT 的 `gk` 标签交叉验证 |
 | 释义 + 音标 | ECDICT（skywind3000/ecdict） | MIT 协议，英文→中文词典库，含 IPA 音标、词性、常用释义，自带 zk/gk/cet4 等标签与 BNC 词频 |
+| 音标（美式，M1 补充源） | ipa-dict（open-dict-data/ipa-dict，en_US） | MIT 协议，通用美音 IPA（基于 CMUdict 改造）；ECDICT 音标作为缺失兜底 |
 | 例句 | Tatoeba 英语句库 | CC BY 2.0 FR，每周更新可整库下载；按词、句长、词频过滤出简单句，需保留署名 |
 | 发音 | 离线词库（TTS 批量生成） | 用 Edge TTS / 云端 TTS 批量生成美音音频并打包为离线包 |
 | 词根词缀 | 暂缓（M2 起人工整理核心 300–500 词根） | 避免过早引入低质量聚合数据 |
+
+> 补充说明（2026-08-13 已确认）：ECDICT 音标实测为英式/混合风格
+> （如 ask→ɑ:sk、class→klɑ:s、water→'wɒ:tə），与"音标必填美式 IPA"不符；
+> M1 采用 ipa-dict en_US 为美音音标主源（实测对 gk 词覆盖 99.1%），ECDICT 音标
+> 兜底缺失词，TTS 音频同为美音（Edge TTS en-US），保证音标与发音一致。
 
 **处理流程**：以 ECDICT `tag` 含 `gk` 的词条为种子 → 与考纲词表对齐去重 → 释义/音标直接从 ECDICT 取 → 例句从 Tatoeba 按条件过滤 → TTS 生成音频 → 人工抽检。
 

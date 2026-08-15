@@ -8,6 +8,7 @@ class AppSettings {
     this.examDate,
     this.timezone = 'Asia/Shanghai',
     this.onboardingDone = false,
+    this.wordbookVersion,
   });
 
   /// 每日新词目标（PRD F2，默认 20）。
@@ -31,4 +32,7 @@ class AppSettings {
   /// 首次启动引导是否已完成（TECH_DOC §18，默认 false；完成 Onboarding
   /// 后置 true，供首启路由判定，§5.1）。
   final bool onboardingDone;
+
+  /// 已安装词库内容版本（TECH_DOC §8.2；null 表示尚未导入发布版词库）。
+  final String? wordbookVersion;
 }

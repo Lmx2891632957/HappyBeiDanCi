@@ -120,13 +120,15 @@ class _SessionCardState extends State<SessionCard> {
                         fontStyle: FontStyle.italic,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      word.examples.first.zh,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    if (word.examples.first.zh != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        word.examples.first.zh!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ],
               ),
