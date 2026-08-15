@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -215,7 +217,7 @@ class _HomeContent extends StatelessWidget {
         ],
         FilledButton(
           onPressed: today.remainingNewWords > 0
-              ? () => _startLearning(context, book.id, newCount)
+              ? () => _onStartLearning(context, today)
               : null,
           child: Text(l10n.homeStartLearning),
         ),
@@ -253,6 +255,39 @@ class _HomeContent extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  /// "开始学习"入口：今日仍有剩余待学新词时直接开一组（剩余量）；
+  /// 目标已完成且词书还有未学词时弹确认框，确认后再学一组
+  /// （每组 = 每日目标，取词封顶词书剩余，2026-08-15 产品确认口径）。
+  void _onStartLearning(BuildContext context, TodayPlan today) {
+    if (today.remainingNewWordsToday > 0) {
+      _startLearning(context, today.wordbook!.id, today.remainingNewWordsToday);
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text(l10n.homeExtraGroupPrompt),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.homeExtraGroupCancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _startLearning(
+                context,
+                today.wordbook!.id,
+                math.min(today.settings.dailyNewWords, today.remainingNewWords),
+              );
+            },
+            child: Text(l10n.homeExtraGroupConfirm),
+          ),
+        ],
+      ),
     );
   }
 

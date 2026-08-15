@@ -290,6 +290,24 @@ abstract class AppLocalizations {
   /// **'Start review'**
   String get homeStartReview;
 
+  /// No description provided for @homeExtraGroupPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s learning is done. Learn another set of words?'**
+  String get homeExtraGroupPrompt;
+
+  /// No description provided for @homeExtraGroupConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn another set'**
+  String get homeExtraGroupConfirm;
+
+  /// No description provided for @homeExtraGroupCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get homeExtraGroupCancel;
+
   /// No description provided for @homeContinueSession.
   ///
   /// In en, this message translates to:

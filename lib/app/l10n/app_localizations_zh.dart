@@ -123,6 +123,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeStartReview => '开始复习';
 
   @override
+  String get homeExtraGroupPrompt => '今日学习任务已完成，是否再学习一组单词？';
+
+  @override
+  String get homeExtraGroupConfirm => '再学一组';
+
+  @override
+  String get homeExtraGroupCancel => '取消';
+
+  @override
   String get homeContinueSession => '继续上次未完成的学习';
 
   @override

@@ -126,6 +126,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeStartReview => 'Start review';
 
   @override
+  String get homeExtraGroupPrompt =>
+      'Today\'s learning is done. Learn another set of words?';
+
+  @override
+  String get homeExtraGroupConfirm => 'Learn another set';
+
+  @override
+  String get homeExtraGroupCancel => 'Cancel';
+
+  @override
   String get homeContinueSession => 'Continue unfinished session';
 
   @override
