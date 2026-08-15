@@ -138,6 +138,22 @@
     }
   },
   "audioUnavailable": "Audio not available yet",
+  "audioPlay": "Play pronunciation",
+  "@audioPlay": {
+    "description": "卡片发音按钮提示"
+  },
+  "audioDownloadNotificationTitle": "Downloading pronunciation pack",
+  "@audioDownloadNotificationTitle": {
+    "description": "离线发音包前台服务通知标题"
+  },
+  "audioDownloadNotificationText": "Downloading audio; offline playback available when finished",
+  "@audioDownloadNotificationText": {
+    "description": "离线发音包前台服务通知正文"
+  },
+  "audioDownloadNotificationChannelName": "Pronunciation pack download",
+  "@audioDownloadNotificationChannelName": {
+    "description": "离线发音包前台服务通知频道名"
+  },
   "resultsTitle": "Today's results",
   "resultsCheckinSuccess": "Check-in complete!",
   "resultsSummary": "Today: {newCount} new words · {reviewCount} reviews",

@@ -35,6 +35,38 @@ abstract final class AppConstants {
 
   /// 每日提醒默认时间（HH:mm，PRD F6）。
   static const String defaultReminderTime = '20:00';
+
+  /// 离线音频包发布仓库（TD-11 GitHub Releases；换对象存储只改本组常量，
+  /// TECH_DOC §9.2/§18）。
+  static const String githubRepoOwner = 'Lmx2891632957';
+  static const String githubRepoName = 'HappyBeiDanCi';
+
+  /// M1 词库包发布名（与内容管线 `WORDLIST_NAME` 一致，TECH_DOC §9.2）。
+  /// 多词书时需扩展为 wordbook_id → 包名映射。
+  static const String defaultWordbookPackBase = 'wordbook-gaokao-3500';
+
+  /// 离线包下载进度上报粒度（字节）：每写完一个分块更新
+  /// `audio_packs.downloaded_size`（TECH_DOC §9.2）。
+  static const int audioDownloadProgressChunkBytes = 256 * 1024;
+
+  /// 离线包下载任务退避（WorkManager，TECH_DOC §11.2）。
+  static const Duration audioDownloadBackoff = Duration(minutes: 5);
+
+  /// 离线包发布基址：`.../releases/download/<包名>-v<版本>/`（TECH_DOC §9.2）。
+  static String audioPackReleaseBaseUrl(String packBase, String version) =>
+      'https://github.com/$githubRepoOwner/$githubRepoName/releases/download/'
+      '$packBase-v$version/';
+
+  /// WorkManager 唯一任务名（TECH_DOC §11.2）。
+  static String audioPackUniqueWorkName(int wordbookId) =>
+      'audio-pack-$wordbookId';
+
+  /// 离线包下载后台任务名（WorkManager taskName，§11.2）。
+  static const String audioPackDownloadTaskName = 'audio_pack_download';
+
+  /// 前台服务通知频道与通知 ID（TECH_DOC §11.2）。
+  static const String audioPackNotificationChannelId = 'audio_download';
+  static const int audioPackNotificationId = 1001;
 }
 
 /// settings 键值表的键名常量（TECH_DOC §8.1 settings）。
@@ -69,6 +101,12 @@ abstract final class AppSettingKeys {
   /// 已安装词库内容版本（TECH_DOC §8.2；空串表示未安装）。
   static const String wordbookVersion = 'wordbook_version';
 
+  /// 发音开关（TECH_DOC §9.4，F7；'true'/'false'）。
+  static const String pronunciationEnabled = 'pronunciation_enabled';
+
+  /// 蜂窝网络允许自动下载离线音频包（TECH_DOC §9.4，F5；'true'/'false'）。
+  static const String audioDownloadOnCellular = 'audio_download_on_cellular';
+
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,
@@ -79,5 +117,7 @@ abstract final class AppSettingKeys {
     timezone,
     onboardingDone,
     wordbookVersion,
+    pronunciationEnabled,
+    audioDownloadOnCellular,
   ];
 }

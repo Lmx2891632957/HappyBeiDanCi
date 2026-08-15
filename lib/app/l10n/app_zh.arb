@@ -115,6 +115,22 @@
     }
   },
   "audioUnavailable": "发音暂不可用",
+  "audioPlay": "播放发音",
+  "@audioPlay": {
+    "description": "卡片发音按钮提示"
+  },
+  "audioDownloadNotificationTitle": "正在下载发音包",
+  "@audioDownloadNotificationTitle": {
+    "description": "离线发音包前台服务通知标题"
+  },
+  "audioDownloadNotificationText": "正在下载单词发音，完成后可离线播放",
+  "@audioDownloadNotificationText": {
+    "description": "离线发音包前台服务通知正文"
+  },
+  "audioDownloadNotificationChannelName": "发音包下载",
+  "@audioDownloadNotificationChannelName": {
+    "description": "离线发音包前台服务通知频道名"
+  },
   "resultsTitle": "今日成果",
   "resultsCheckinSuccess": "打卡成功！",
   "resultsSummary": "今日已学新词 {newCount} · 复习 {reviewCount}",

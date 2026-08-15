@@ -145,6 +145,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get audioUnavailable => '发音暂不可用';
 
   @override
+  String get audioPlay => '播放发音';
+
+  @override
+  String get audioDownloadNotificationTitle => '正在下载发音包';
+
+  @override
+  String get audioDownloadNotificationText => '正在下载单词发音，完成后可离线播放';
+
+  @override
+  String get audioDownloadNotificationChannelName => '发音包下载';
+
+  @override
   String get resultsTitle => '今日成果';
 
   @override

@@ -45,6 +45,8 @@ void main() {
     expect(settings.examDate, isNull);
     expect(settings.timezone, AppConstants.defaultTimezone);
     expect(settings.onboardingDone, isFalse);
+    expect(settings.pronunciationEnabled, isTrue);
+    expect(settings.audioDownloadOnCellular, isFalse);
 
     // 回填已落库：全部键都存在。
     final rows = await db.select(db.settings).get();
@@ -87,6 +89,8 @@ void main() {
         examDate: exam,
         timezone: 'Asia/Shanghai',
         wordbookVersion: '1.0',
+        pronunciationEnabled: false,
+        audioDownloadOnCellular: true,
       ),
     );
     final loaded = await repo.load();
@@ -97,6 +101,8 @@ void main() {
     expect(loaded.examDate, exam);
     expect(loaded.timezone, 'Asia/Shanghai');
     expect(loaded.wordbookVersion, '1.0');
+    expect(loaded.pronunciationEnabled, isFalse);
+    expect(loaded.audioDownloadOnCellular, isTrue);
 
     // 存储层校验：reviewCap 关闭存 'off'、examDate 存 epoch 毫秒文本。
     final rows = await db.select(db.settings).get();

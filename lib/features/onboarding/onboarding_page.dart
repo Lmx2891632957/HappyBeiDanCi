@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/l10n/app_localizations.dart';
 import '../../app/providers.dart';
 import '../../core/constants.dart';
+import '../../core/logger.dart';
 import '../../domain/models/app_settings.dart';
 import '../../domain/models/wordbook.dart';
 
@@ -82,6 +85,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       if (!mounted) {
         return;
       }
+      // F5：首启完成即开始后台下载当前词书发音离线包（Wi-Fi 策略见设置，
+      // §9.2）；调度失败不影响学习（在线兜底，T-02）。
+      unawaited(
+        _scheduleAudioPack(bookId, settings.wordbookVersion),
+      );
       // go 替换路由栈：返回键不回到引导页；今日页已可用，无需改动其逻辑。
       context.go('/');
     } catch (error) {
@@ -96,6 +104,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _scheduleAudioPack(int bookId, String? version) async {
+    if (version == null || version.isEmpty) {
+      return;
+    }
+    try {
+      final l10n = AppLocalizations.of(context);
+      await ref.read(audioPackDownloadSchedulerProvider).scheduleIfNeeded(
+        wordbookId: bookId,
+        version: version,
+        notificationTitle: l10n.audioDownloadNotificationTitle,
+        notificationText: l10n.audioDownloadNotificationText,
+        notificationChannelName: l10n.audioDownloadNotificationChannelName,
+      );
+    } catch (error) {
+      AppLogger.warning('首启后音频包下载调度失败：$error');
     }
   }
 
