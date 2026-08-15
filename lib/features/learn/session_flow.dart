@@ -53,9 +53,22 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
   bool _loading = true;
   String? _error;
   bool _finishFailed = false;
+
+  /// 评分失败（区别于加载/完成失败）：文案用 sessionRateFailed（缺陷三）。
+  bool _rateFailed = false;
   int? _currentWordId;
   String? _feedback;
+
+  /// 评分进行中（防重复提交；同时是中断与评分互斥的同步标志）。
   bool _submitting = false;
+
+  /// 中断（快照保存）进行中：期间评分入口直接短路，避免评分落到已中断的
+  /// 状态机（缺陷二互斥：_rate 与 _interrupt 同一时刻至多一个在推进）。
+  bool _interrupting = false;
+
+  /// 进行中的评分 future：中断发起时先等其完成再保存快照，防止"评分已
+  /// 落库、队列未推进"的部分提交（状态机停在 Rating，恢复后重复作答）。
+  Future<void>? _pendingRate;
   bool _finished = false;
   AppLifecycleListener? _lifecycle;
 
@@ -115,11 +128,41 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
     }
   }
 
+  /// 用户作答入口：先做互斥与阶段防御，再执行评分（实际逻辑见 [_rateInner]）。
+  ///
+  /// 互斥（缺陷二）：评分与中断共用 `_submitting`/`_interrupting` 两个标志，
+  /// 任一进行中另一入口直接短路；评分进行中发起中断会先等评分完成
+  /// （[_interrupt] 内 await [_pendingRate]），保证状态机事件严格串行。
   Future<void> _rate(Rating rating) async {
-    if (_submitting) {
+    if (_submitting || _interrupting) {
       return;
     }
+    // 防御：评分仅允许在 Showing（TECH_DOC §5.4 状态图）。正常时序下
+    // resumed 生命周期已把会话恢复为 Showing，此处仅兜底异常时序（如恢复
+    // 失败、中断与恢复竞态），不向用户抛状态机 StateError——Paused 先恢复
+    // 会话再继续评分；其余阶段（如评分失败残留的 Rating）静默忽略本次
+    // 点击，错误文案已在失败时展示，用户返回会 interrupt 保存快照。
+    if (_driver.phase != SessionPhase.showing) {
+      if (_driver.phase == SessionPhase.paused) {
+        await _onResumed();
+      }
+      if (!mounted || _driver.phase != SessionPhase.showing) {
+        return;
+      }
+    }
     _submitting = true;
+    final future = _rateInner(rating);
+    _pendingRate = future;
+    try {
+      await future;
+    } finally {
+      _submitting = false;
+      _pendingRate = null;
+    }
+  }
+
+  /// 评分主体：CardRated → FSRS 调度 + 落库 → RatingCommitted → 取下一张卡。
+  Future<void> _rateInner(Rating rating) async {
     final l10n = AppLocalizations.of(context);
     final wordId = _currentWordId;
     final word = wordId == null ? null : _words[wordId];
@@ -149,16 +192,19 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
         _currentWordId = next;
         _feedback = feedback;
         _error = null;
+        _rateFailed = false;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
       // 评分异常（如数据库损坏导致取卡失败）：状态机已进入 Rating，
-      // 直接重试不安全，提示用户返回（返回路径会 interrupt 保存快照）。
-      setState(() => _error = '$error');
-    } finally {
-      _submitting = false;
+      // 直接重试不安全，提示用户返回（返回路径会 interrupt 保存快照）；
+      // 文案与加载失败区分（sessionRateFailed，缺陷三）。
+      setState(() {
+        _error = '$error';
+        _rateFailed = true;
+      });
     }
   }
 
@@ -194,21 +240,80 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
   /// 中断：快照保存失败时重试一次（驱动已进入 Paused，幂等重存，§5.4）；
   /// 仍失败记录日志并放行返回（避免把用户困在页面，T-05 由驱动抛错语义兜底，
   /// 下次进入时快照缺失会提示重新开始而非静默继续）。
+  ///
+  /// 与评分互斥（缺陷二）：`_interrupting` 标志让并发的中断调用与评分入口
+  /// 直接短路；发起时若评分进行中（[_pendingRate] 非空）先等其完成——评分
+  /// 完成后队列已推进，再中断保存的快照才与落库一致，避免"评分已落库、
+  /// 队列未推进"的部分提交（中断停在 Rating 阶段，恢复后同一卡重复作答）。
   Future<void> _interrupt() async {
-    if (_driver.phase == SessionPhase.idle ||
-        _driver.phase == SessionPhase.done) {
+    if (_interrupting) {
       return;
     }
+    _interrupting = true;
     try {
-      await _driver.interrupt();
-      _invalidateHomeViews();
-    } catch (error) {
+      if (_driver.phase == SessionPhase.idle ||
+          _driver.phase == SessionPhase.done) {
+        return;
+      }
+      final pending = _pendingRate;
+      if (pending != null) {
+        await pending;
+      }
+      if (_driver.phase == SessionPhase.idle ||
+          _driver.phase == SessionPhase.done) {
+        // 等待评分期间会话已完成（finish 清空元数据）：无需再中断。
+        return;
+      }
       try {
         await _driver.interrupt();
         _invalidateHomeViews();
-      } catch (error2) {
-        AppLogger.error('会话中断快照保存失败（重试后仍失败）', error2);
+      } catch (error) {
+        try {
+          await _driver.interrupt();
+          _invalidateHomeViews();
+        } catch (error2) {
+          AppLogger.error('会话中断快照保存失败（重试后仍失败）', error2);
+        }
       }
+    } finally {
+      _interrupting = false;
+    }
+  }
+
+  /// 切回前台恢复：退后台时 [_interrupt] 已把状态机转入 Paused 并保存快照，
+  /// 返回前台后从 Paused 恢复（SessionResumed，TECH_DOC §5.4 状态图）。
+  ///
+  /// 与跨实例恢复（resumeSession）不同：同一驱动实例内状态机内存队列即权威
+  /// （Paused 时快照即当前状态），无需重新读库；剩余队列非空 → 恢复展示队首
+  /// 卡，为空（合法快照，§5.4）→ 直接完成会话。缺陷一治本：此前无 resumed
+  /// 分支，切回前台后用户继续评分会向 Paused 状态机发 CardRated 抛 StateError。
+  Future<void> _onResumed() async {
+    if (!mounted || _driver.phase != SessionPhase.paused) {
+      // 未中断（如仅拉下通知栏/打开最近任务后返回）或页面已销毁：无需恢复。
+      return;
+    }
+    try {
+      _driver.resume();
+      if (_driver.phase == SessionPhase.fetching) {
+        // 队列已清空但未 finish 的合法快照（§5.4）：直接完成会话。
+        await _finishAndNavigate();
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      // Showing：队首卡即中断时的当前卡，恢复展示并清掉中断前的反馈/错误。
+      setState(() {
+        _currentWordId = _driver.currentWordId;
+        _feedback = null;
+        _error = null;
+        _rateFailed = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '$error');
     }
   }
 
@@ -228,6 +333,11 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
         state == AppLifecycleState.hidden) {
       // 退后台：尽力保存快照（T-05）；失败已在 _interrupt 内记录日志。
       unawaited(_interrupt());
+    } else if (state == AppLifecycleState.resumed) {
+      // 切回前台：若退后台时已中断（状态机 Paused），恢复会话使评分可继续
+      //（缺陷一治本：此前无 resumed 分支，继续评分向 Paused 状态机发
+      // CardRated 抛 StateError，只能退出重进）。
+      unawaited(_onResumed());
     }
   }
 
@@ -284,8 +394,11 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
   }
 
   Widget _buildError(AppLocalizations l10n) {
+    // 三类失败文案区分：完成失败（可重试）/ 评分失败 / 加载失败（缺陷三）。
     final message = _finishFailed
         ? l10n.sessionFinishFailed(_error!)
+        : _rateFailed
+        ? l10n.sessionRateFailed(_error!)
         : l10n.sessionLoadFailed(_error!);
     return Center(
       child: Padding(
@@ -334,7 +447,7 @@ class _SessionFlowState extends ConsumerState<SessionFlow> {
             ),
           ),
         ),
-        RatingButtons(onRating: _rate, enabled: !_submitting),
+        RatingButtons(onRating: _rate, enabled: !_submitting && !_interrupting),
       ],
     );
   }
