@@ -97,7 +97,7 @@ class WordbookImporter {
         content: const JsonEncoder.withIndent('  ').convert(backup),
       );
 
-      return _db.transaction(() async {
+      return await _db.transaction(() async {
         final oldWordMap = await _readWordMap();
         await _db.delete(_db.wordbookItems).go();
         await _db.delete(_db.words).go();
