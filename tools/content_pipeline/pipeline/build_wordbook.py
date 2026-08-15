@@ -26,6 +26,24 @@ from . import common
 # ---------------------------------------------------------------------------
 # 音标
 # ---------------------------------------------------------------------------
+# 音标展示与入库归一化（TECH_DOC §10.2，与 App 显示层 ipa_display.dart 一致）：
+# - ɹ（U+0279，turned r，观感为"翻转的 r"）→ r（学习者词典惯例）；
+# - ә（U+04D9，西里尔 schwa）→ ə（U+0259，拉丁 schwa，ECDICT 上游编码污染）；
+# - є（U+0454，西里尔乌克兰 ye）→ e（同上）。
+IPA_DISPLAY_REPLACEMENTS = {
+    "\u0279": "r",
+    "\u04d9": "\u0259",
+    "\u0454": "e",
+}
+
+
+def normalize_ipa(phonetic: str) -> str:
+    """按 TECH_DOC §10.2 音标展示与入库规范归一化（幂等）。"""
+    for src, dst in IPA_DISPLAY_REPLACEMENTS.items():
+        phonetic = phonetic.replace(src, dst)
+    return phonetic
+
+
 def load_ipa(path: Path) -> dict[str, str]:
     """加载 ipa-dict en_US：词 → 首个 IPA（一词多音取第一个，文档见 §10.4）。"""
     ipa: dict[str, str] = {}
@@ -345,11 +363,14 @@ def build(
     for w in words:
         p = ipa.get(w["word"])
         if p:
-            phonetics[w["word"]] = (p, "ipa-dict")
+            phonetics[w["word"]] = (normalize_ipa(p), "ipa-dict")
             ipa_cover += 1
         else:
             # 兜底：ECDICT 音标（英式/混合风格，见 PRD §7.2 补充说明）。
-            phonetics[w["word"]] = (w["phonetic_ecdict"] or "", "ecdict-fallback")
+            phonetics[w["word"]] = (
+                normalize_ipa(w["phonetic_ecdict"] or ""),
+                "ecdict-fallback",
+            )
     print(f"ipa-dict 音标覆盖: {ipa_cover}/{len(words)}")
 
     print("加载 ECDICT bnc 词频表…")

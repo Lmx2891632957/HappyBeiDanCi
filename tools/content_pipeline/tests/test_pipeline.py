@@ -42,7 +42,7 @@ def write_ecdict_csv(path: Path) -> None:
 
 def write_ipa(path: Path) -> None:
     path.write_text(
-        "abandon\t/əˈbændən/\nability\t/əˈbɪləti/\nzebra\t/ˈzɛbrə/\n"
+        "abandon\t/əˈbændən/\nability\t/əˈbɪləti/\nzebra\t/ˈzɛbɹə/\n"
         "book\t/bʊk/\nqwerty\t/ˈkwɜːrti/\n",
         encoding="utf-8",
     )
@@ -128,6 +128,35 @@ class MeaningsTest(unittest.TestCase):
         self.assertEqual(parsed[0]["pos"], "n.")
 
 
+class IpaNormalizeTest(unittest.TestCase):
+    """音标展示与入库归一化（TECH_DOC §10.2，与 App 显示层口径一致）。"""
+
+    def test_turned_r_to_plain_r(self) -> None:
+        self.assertEqual(build_wordbook.normalize_ipa("ˈɹɛd"), "ˈrɛd")
+        self.assertEqual(build_wordbook.normalize_ipa("ˈmɪɹɝ"), "ˈmɪrɝ")
+
+    def test_cyrillic_confusables_cleaned(self) -> None:
+        self.assertEqual(
+            build_wordbook.normalize_ipa("'seilzg\u04d9:l"), "'seilzgə:l"
+        )
+        self.assertEqual(
+            build_wordbook.normalize_ipa("'\u0454\u04d9r\u04d9plein"),
+            "'eərəplein",
+        )
+
+    def test_empty_and_regular_ipa_unchanged(self) -> None:
+        self.assertEqual(build_wordbook.normalize_ipa(""), "")
+        self.assertEqual(
+            build_wordbook.normalize_ipa("ˈæpəɫ θɛŋk ʃɪp ɑː ɔː ʊ ɪ ɛ ŋ ʒ ð ɡ ɝ"),
+            "ˈæpəɫ θɛŋk ʃɪp ɑː ɔː ʊ ɪ ɛ ŋ ʒ ð ɡ ɝ",
+        )
+
+    def test_idempotent(self) -> None:
+        src = "ˈɹɛd 'seilzg\u04d9:l '\u0454\u04d9r\u04d9plein"
+        once = build_wordbook.normalize_ipa(src)
+        self.assertEqual(build_wordbook.normalize_ipa(once), once)
+
+
 class BuildWordbookTest(unittest.TestCase):
     def test_build_db_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -160,6 +189,13 @@ class BuildWordbookTest(unittest.TestCase):
                         "SELECT phonetic FROM words WHERE word='abandon'"
                     ).fetchone()[0],
                     "/əˈbændən/",
+                )
+                # ipa-dict 音标同样归一化：ɹ（turned r）→ r。
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT phonetic FROM words WHERE word='zebra'"
+                    ).fetchone()[0],
+                    "/ˈzɛbrə/",
                 )
                 # 例句署名与筛选（长句被剔除，book 取 2 条短句）
                 ex = conn.execute(
