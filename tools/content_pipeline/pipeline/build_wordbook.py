@@ -162,7 +162,7 @@ def select_examples(
     word: str, sentence_idx: SentenceIndex, gk: set[str], bnc: dict[str, int]
 ) -> list[dict]:
     """按 TECH_DOC §10.2 例句规则筛选：句长达标（构建期已过滤）、内容词不超纲、
-    优先短句、每词至多 2 句；返回带署名与句子链接的条目。
+    长度区间偏好 + 套话惩罚评分、每词至多 2 句；返回带署名与句子链接的条目。
     """
     candidates: list[tuple[int, str, str]] = []
     seen_texts: set[str] = set()
@@ -185,11 +185,11 @@ def select_examples(
         ):
             continue
         seen_texts.add(seen_key)
-        candidates.append((len(tokens), sid, text, username))
+        candidates.append((sid, text, username, tokens))
 
-    candidates.sort(key=lambda c: (c[0], c[1]))  # 优先短句，其次句子 ID（稳定）
+    candidates.sort(key=lambda c: (_example_score(c[3]), len(c[3]), c[0]))
     examples = []
-    for _, sid, text, username in candidates[: common.MAX_EXAMPLES_PER_WORD]:
+    for sid, text, username, _ in candidates[: common.MAX_EXAMPLES_PER_WORD]:
         examples.append(
             {
                 "en": text,
@@ -199,6 +199,27 @@ def select_examples(
             }
         )
     return examples
+
+
+def _example_score(tokens: list[str]) -> int:
+    """例句候选评分（TECH_DOC §10.2 2026-08-15 规则），得分低者优先。
+
+    长度偏好：6–12 词 0 分、4–5 / 13–18 词 1 分、3 词 3 分（兜底）；
+    ≤6 词且以人称代词+be 开头的套话短句再加 2 分。
+    """
+    n = len(tokens)
+    lo, hi = common.EXAMPLE_BEST_LEN_RANGE
+    if lo <= n <= hi:
+        score = 0
+    elif any(a <= n <= b for a, b in common.EXAMPLE_OK_LEN_RANGES):
+        score = 1
+    else:
+        score = 3
+    if n <= common.EXAMPLE_FILLER_MAX_WORDS:
+        head = " ".join(tokens[:2])
+        if tokens[0] in common.EXAMPLE_FILLER_PREFIXES or head in common.EXAMPLE_FILLER_PREFIXES:
+            score += 2
+    return score
 
 
 def load_bnc_map(ecdict_csv: Path) -> dict[str, int]:

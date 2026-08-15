@@ -11,6 +11,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from array import array
 from pathlib import Path
 
 import sys
@@ -165,6 +166,45 @@ class IpaNormalizeTest(unittest.TestCase):
         src = "ˈɹɛd /ˈstɹeɪndʒ/ ˈæpəɫ 'seilzg\u04d9:l '\u0454\u04d9r\u04d9plein"
         once = build_wordbook.normalize_ipa(src)
         self.assertEqual(build_wordbook.normalize_ipa(once), once)
+
+
+class ExampleSelectionTest(unittest.TestCase):
+    """例句候选评分与排序（TECH_DOC §10.2 2026-08-15 规则）。"""
+
+    def test_example_score_length_preference(self) -> None:
+        self.assertEqual(build_wordbook._example_score(["a"] * 6), 0)
+        self.assertEqual(build_wordbook._example_score(["a"] * 12), 0)
+        self.assertEqual(build_wordbook._example_score(["a"] * 4), 1)
+        self.assertEqual(build_wordbook._example_score(["a"] * 5), 1)
+        self.assertEqual(build_wordbook._example_score(["a"] * 18), 1)
+        self.assertEqual(build_wordbook._example_score(["a"] * 3), 3)
+
+    def test_example_score_filler_penalty(self) -> None:
+        tokens = build_wordbook.common.tokenize("It's monkey meat.")
+        self.assertEqual(len(tokens), 3)
+        self.assertEqual(build_wordbook._example_score(tokens), 5)
+        clean = build_wordbook.common.tokenize("Clean the mirror.")
+        self.assertEqual(build_wordbook._example_score(clean), 3)
+        # 超过套话长度上限的 it's 开头长句不惩罚。
+        long_ = build_wordbook.common.tokenize(
+            "It's the sort of work that calls for a high level of concentration."
+        )
+        # 13 词落在次优区间（13–18），无套话惩罚 → 1 分。
+        self.assertEqual(build_wordbook._example_score(long_), 1)
+
+    def test_select_examples_prefers_context_sentence(self) -> None:
+        idx = build_wordbook.SentenceIndex()
+        idx.records = [
+            (10, "It's monkey meat.", "alice"),
+            (11, "The monkey climbed up a tree.", "bob"),
+        ]
+        idx.per_word = {"monkey": array("I", [0, 1])}
+        out = build_wordbook.select_examples(
+            "monkey", idx, {"monkey", "tree", "meat"}, {"climbed": 5000, "it's": 1000}
+        )
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0]["en"], "The monkey climbed up a tree.")
+        self.assertEqual(out[1]["en"], "It's monkey meat.")
 
 
 class BuildWordbookTest(unittest.TestCase):

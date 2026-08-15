@@ -80,6 +80,19 @@ MIN_SENTENCE_WORDS = 3
 BNC_THRESHOLD = 30000
 MAX_EXAMPLES_PER_WORD = 2
 
+# 例句候选长度偏好（TECH_DOC §10.2，2026-08-15 调整）：6–12 词最优、
+# 4–5 / 13–18 词次之；3 词仅作兜底，避免"优先短句"退化为 3 词套话。
+EXAMPLE_BEST_LEN_RANGE = (6, 12)
+EXAMPLE_OK_LEN_RANGES = ((4, 5), (13, 18))
+# ≤6 词且以人称代词+be 开头的公式化短句（如 It's/I'm/This is…）视为套话。
+EXAMPLE_FILLER_MAX_WORDS = 6
+EXAMPLE_FILLER_PREFIXES = {
+    "it's", "it is", "i'm", "i am", "this is", "that's", "that is",
+    "there's", "there is", "you're", "you are", "we're", "we are",
+    "they're", "they are", "he's", "he is", "she's", "she is",
+    "what's", "what is", "who's", "who is", "here's", "here is",
+}
+
 # 功能词白名单：例句筛选中免 BNC 校验的高频语法词。
 FUNCTION_WORDS = {
     "a", "an", "the", "and", "or", "but", "nor", "so", "for", "yet",
