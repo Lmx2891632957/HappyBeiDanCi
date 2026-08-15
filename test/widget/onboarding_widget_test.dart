@@ -12,6 +12,7 @@ import 'package:happy_bei_dan_ci/app/app.dart';
 import 'package:happy_bei_dan_ci/app/providers.dart';
 import 'package:happy_bei_dan_ci/core/constants.dart';
 import 'package:happy_bei_dan_ci/data/local/app_database.dart';
+import 'package:happy_bei_dan_ci/data/repositories/drift_wordbook_repository.dart';
 import 'package:happy_bei_dan_ci/data/repositories/drift_settings_repository.dart';
 import 'package:happy_bei_dan_ci/domain/models/app_settings.dart';
 import 'package:happy_bei_dan_ci/domain/services/settings_repository.dart';
@@ -102,6 +103,43 @@ void main() {
     expect(find.text('Start learning'), findsOneWidget);
     expect(find.byType(OnboardingPage), findsNothing);
     expect(find.text('Get started'), findsNothing);
+  });
+
+  testWidgets('熟词快筛（PRD F1）：标记已掌握词 → 摘要计数 → 开始后新词序列排除', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingPage), findsOneWidget);
+
+    // 进入快筛页：3 词全量展示。
+    await tester.tap(find.text('Mark words you already know (optional)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark known words'), findsOneWidget);
+    for (final word in ['word1', 'word2', 'word3']) {
+      expect(find.text(word), findsOneWidget);
+    }
+
+    // 标记 word1 为已掌握并完成。
+    await tester.tap(find.text('word1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    // 返回 Onboarding：摘要显示已标记 1 个词。
+    expect(find.text('1 word(s) marked'), findsOneWidget);
+
+    // 开始学习 → 今日任务页；仓储口径：word1 不再进入新词序列。
+    await tester.tap(find.text('Start'));
+    await tester.pumpAndSettle();
+    expect(find.text('Today'), findsOneWidget);
+    final repo = DriftWordbookRepository(db);
+    expect(await repo.getSkippedWordIds(1), {1});
+    expect(await repo.countRemainingNewWords(1), 2);
+    expect(
+      (await repo.getWordsByBook(1)).map((w) => w.word),
+      ['word2', 'word3'],
+    );
   });
 
   testWidgets('引导保存失败：SnackBar 提示且不跳转，可重试保存', (tester) async {

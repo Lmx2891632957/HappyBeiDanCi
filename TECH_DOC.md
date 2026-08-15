@@ -184,8 +184,11 @@ test/
 >    每日目标与首启标记随 `SettingsRepository.save` 同事务落库（§8.1 settings），
 >    中断/重复进入不会造成重复初始化。
 > 7. **首启取舍（2026-08-12 本步明确）**：
->    - **熟词跳过未实现**：Onboarding 不含“快速筛选已掌握词”（PRD F1/M1），
->      `wordbook_items.is_skipped` 的读写留待 M1 后续迭代，不宣称已完整实现。
+>    - **熟词跳过（已实现，2026-08-13 单元 5 落地）**：Onboarding 提供
+>      「标记已掌握词（可选）」入口，进入快筛页按词书全量/搜索标记
+>      `wordbook_items.is_skipped`（§8.3 读写口径）；已标记词不再进入
+>      “新词”序列（`getWordsByBook`/`countRemainingNewWords` 过滤，
+>      §8.3），不影响既有学习/复习数据。
 >    - **词书选择口径**：Onboarding 展示 `getWordbooks()` 并默认选中第一个；
 >      M1 单词书场景下与今日页“默认第一个”等价（§5.1），暂不新增
 >      `active_wordbook_id` 设置键；多词书选择持久化与
@@ -217,8 +220,8 @@ test/
 ### 5.1 启动与初始化
 
 1. 打开 App → 初始化数据库（WAL、迁移）→ 读取设置与词书状态。
-2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 开始；熟词跳过未实现，
-   见 §4 补充说明 7）；再次启动直达今日任务页。
+2. 首次启动进入 **Onboarding**（选词书 → 设每日目标 → 开始；其中「标记已掌握词」
+   为可选步骤，见 §4 补充说明 7 与 §8.3）；再次启动直达今日任务页。
    - **首启判定**：启动先经 `/splash` 首帧渲染，`onboardingGateProvider`
      读取 `settings.onboarding_done`（缺失按默认 `false` 回填，§18）；
      `false` → 进入 `/onboarding`，`true` → 直达 `/`。设置读取为异步，
@@ -724,6 +727,16 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 >   “词书剩余新词”展示与计划计算（§5.1/§6.1）。
 > - `getWordsByIds(ids)` 批量按 ID 取词（返回顺序与入参一致），供会话页
 >   卡片展示（复习队列词已学习、不在 `getWordsByBook` 结果内）。
+
+> 熟词跳过读写口径（2026-08-13 单元 5 落地时新增，PRD F1）：
+> - `getAllWordsByBook(bookId, {limit, offset})`：按词书返回**全量**词条
+>   （含已学/已跳过），供快筛页分页加载；`searchWordsByBook(bookId, query,
+>   {limit})` 按单词包含匹配（`%`/`_` 转义），供快筛搜索。
+> - `getSkippedWordIds(bookId)`：已标记词 ID 集合；`setSkipped({wordbookId,
+>   wordId, skipped})` 单词写入、`setAllSkipped(bookId, {skipped})` 批量
+>   （UPDATE 同词书全部行，快筛页「全部标记/清除」）。
+> - 已标记词从 `getWordsByBook` / `countRemainingNewWords` 过滤口径中剔除
+>   （§8.3 新词序列），不影响已学词与复习队列；标记操作不触碰 `user_words`。
 
 ---
 

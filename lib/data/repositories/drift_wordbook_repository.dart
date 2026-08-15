@@ -123,6 +123,91 @@ class DriftWordbookRepository implements WordbookRepository {
     ];
   }
 
+  @override
+  Future<List<Word>> getAllWordsByBook(
+    int wordbookId, {
+    int limit = 100,
+    int offset = 0,
+  }) {
+    // 快筛页需要全量词条（含已学/已跳过）；按 shuffled 递增分页，与学习
+    // 顺序一致，用户浏览时所见顺序稳定（§8.3 熟词跳过口径）。
+    final query = _db.select(_db.words).join([
+      innerJoin(
+        _db.wordbookItems,
+        _db.wordbookItems.wordId.equalsExp(_db.words.id),
+      ),
+    ])
+      ..where(_db.wordbookItems.wordbookId.equals(wordbookId))
+      ..orderBy([OrderingTerm(expression: _db.wordbookItems.shuffled)])
+      ..limit(limit, offset: offset);
+    return query
+        .get()
+        .then((rows) => [for (final row in rows) _toWord(row.readTable(_db.words))]);
+  }
+
+  @override
+  Future<List<Word>> searchWordsByBook(
+    int wordbookId,
+    String query, {
+    int limit = 100,
+  }) {
+    // 用 SQLite instr() 做包含匹配：无 LIKE 通配符语义，用户输入按字面
+    // 处理（词库单词为小写，查询统一小写后匹配）。Drift 的 like() 不支持
+    // ESCAPE 子句、CustomExpression 不绑定参数，故以字符串字面量内联
+    // （单引号翻倍转义，SQLite 字面量规则，注入安全）。
+    final needle = query.toLowerCase();
+    final literal = needle.replaceAll("'", "''");
+    final q = _db.select(_db.words).join([
+      innerJoin(
+        _db.wordbookItems,
+        _db.wordbookItems.wordId.equalsExp(_db.words.id),
+      ),
+    ])
+      ..where(_db.wordbookItems.wordbookId.equals(wordbookId))
+      ..where(
+        CustomExpression<bool>(
+          "instr(words.word, '$literal') > 0",
+        ),
+      )
+      ..orderBy([OrderingTerm(expression: _db.wordbookItems.shuffled)])
+      ..limit(limit);
+    return q
+        .get()
+        .then((rows) => [for (final row in rows) _toWord(row.readTable(_db.words))]);
+  }
+
+  @override
+  Future<Set<int>> getSkippedWordIds(int wordbookId) async {
+    final rows = await (_db.select(
+      _db.wordbookItems,
+    )..where(
+        (t) => t.wordbookId.equals(wordbookId) & t.isSkipped.equals(true),
+      ))
+        .get();
+    return {for (final row in rows) row.wordId};
+  }
+
+  @override
+  Future<void> setSkipped({
+    required int wordbookId,
+    required int wordId,
+    required bool skipped,
+  }) {
+    return (_db.update(_db.wordbookItems)
+          ..where(
+            (t) => t.wordbookId.equals(wordbookId) & t.wordId.equals(wordId),
+          ))
+        .write(WordbookItemsCompanion(isSkipped: Value(skipped)));
+  }
+
+  @override
+  Future<void> setAllSkipped(int wordbookId, {required bool skipped}) {
+    // 快筛页「全部标记/清除」：单条 UPDATE 覆盖整本词书（§8.3）。
+    return (_db.update(_db.wordbookItems)
+          ..where((t) => t.wordbookId.equals(wordbookId)))
+        .write(WordbookItemsCompanion(isSkipped: Value(skipped)));
+  }
+
   /// 频段排序键：high=0、medium=1、其余（low）=2。
   Expression<int> _frequencyRank() {
     return _db.words.frequency.caseMatch<int>(

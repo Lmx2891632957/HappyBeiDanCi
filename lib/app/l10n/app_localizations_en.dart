@@ -38,6 +38,43 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get onboardingSkipKnownWords =>
+      'Mark words you already know (optional)';
+
+  @override
+  String onboardingSkipCount(int count) {
+    return '$count word(s) marked';
+  }
+
+  @override
+  String get skipKnownTitle => 'Mark known words';
+
+  @override
+  String get skipKnownSearchHint => 'Search words';
+
+  @override
+  String get skipKnownSelectAll => 'Mark all';
+
+  @override
+  String get skipKnownClearAll => 'Clear all';
+
+  @override
+  String get skipKnownDone => 'Done';
+
+  @override
+  String skipKnownSaveFailed(String error) {
+    return 'Failed to save: $error';
+  }
+
+  @override
+  String skipKnownLoadFailed(String error) {
+    return 'Failed to load words: $error';
+  }
+
+  @override
+  String get skipKnownEmpty => 'No words found';
+
+  @override
   String get homeSkeletonReady => 'Project skeleton is ready.';
 
   @override
