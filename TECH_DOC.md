@@ -922,6 +922,17 @@ flowchart LR
 | 质检 | 每 1000 词人工抽检：释义顺序正确、例句难度不超高中阅读、音频清晰无吞音；不合格词条打回对应阶段 |
 | 打包 | 词库 DB（words/wordbooks/wordbook_items）+ 音频 zip + manifest（版本、SHA-256）；产物上传对象存储/CDN，App 按版本拉取 |
 
+> **音标展示与入库规范（2026-08-15 按产品反馈确认）**：无论音标来自 ipa-dict
+> 还是 ECDICT 兜底，入库与展示前统一执行 `normalize_ipa` 归一化（App 显示层
+> `lib/domain/models/ipa_display.dart` 与管线
+> `tools/content_pipeline/pipeline/build_wordbook.py` 各一份实现，口径以此为准）：
+> - `ɹ`（U+0279，turned r，观感为"翻转的 r"）→ `r`：ipa-dict 输出的严格 IPA 符号，
+>   目标用户熟悉的学习者词典惯例为普通 `r`（美音 /r/ 口径不变）；
+> - `ә`（U+04D9，西里尔 schwa）→ `ə`（U+0259，拉丁 schwa）：ECDICT 上游编码污染
+>   （v1.0 实测 23 词），西里尔字符在部分字体下显示异常；
+> - `є`（U+0454，西里尔乌克兰 ye）→ `e`：同上（v1.0 实测 1 词）。
+> 空音标（ECDICT 兜底缺失，v1.0 实测 4 词）在 UI 隐藏，不展示 `//`。
+
 ### 10.3 署名与合规
 
 应用内"关于/数据来源"页固定展示：教育部《高考英语考试大纲》词表（词表口径见
