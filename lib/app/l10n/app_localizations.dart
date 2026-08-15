@@ -374,6 +374,24 @@ abstract class AppLocalizations {
   /// **'Tap the card to see the meaning'**
   String get cardTapToFlip;
 
+  /// Label of the example section on the card back
+  ///
+  /// In en, this message translates to:
+  /// **'Example'**
+  String get cardExampleLabel;
+
+  /// Tooltip/hint to expand the example on the card back
+  ///
+  /// In en, this message translates to:
+  /// **'Show full example'**
+  String get cardExampleExpand;
+
+  /// Tooltip/hint to collapse the example on the card back
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse example'**
+  String get cardExampleCollapse;
+
   /// No description provided for @rateAgain.
   ///
   /// In en, this message translates to:

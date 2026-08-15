@@ -171,6 +171,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cardTapToFlip => '点击卡片查看释义';
 
   @override
+  String get cardExampleLabel => '例句';
+
+  @override
+  String get cardExampleExpand => '展开例句';
+
+  @override
+  String get cardExampleCollapse => '收起例句';
+
+  @override
   String get rateAgain => '不认识';
 
   @override

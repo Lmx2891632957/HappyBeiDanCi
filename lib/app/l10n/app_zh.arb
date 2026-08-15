@@ -131,6 +131,18 @@
   },
   "sessionRetry": "重试",
   "cardTapToFlip": "点击卡片查看释义",
+  "cardExampleLabel": "例句",
+  "@cardExampleLabel": {
+    "description": "卡片反面例句区标签"
+  },
+  "cardExampleExpand": "展开例句",
+  "@cardExampleExpand": {
+    "description": "卡片反面例句区展开提示"
+  },
+  "cardExampleCollapse": "收起例句",
+  "@cardExampleCollapse": {
+    "description": "卡片反面例句区收起提示"
+  },
   "rateAgain": "不认识",
   "rateHard": "模糊",
   "rateGood": "认识",

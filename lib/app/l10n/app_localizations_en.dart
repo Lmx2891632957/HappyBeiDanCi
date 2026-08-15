@@ -175,6 +175,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardTapToFlip => 'Tap the card to see the meaning';
 
   @override
+  String get cardExampleLabel => 'Example';
+
+  @override
+  String get cardExampleExpand => 'Show full example';
+
+  @override
+  String get cardExampleCollapse => 'Collapse example';
+
+  @override
   String get rateAgain => 'Don\'t know';
 
   @override
