@@ -138,7 +138,10 @@ void main() {
     );
   }
 
-  WordbookInstaller installer(HttpServer server) => WordbookInstaller(
+  WordbookInstaller installer(
+    HttpServer server, {
+    String latestVersion = '1.0',
+  }) => WordbookInstaller(
     importer: WordbookImporter(
       db,
       backupWriter: _TempBackupWriter(backupDir),
@@ -146,7 +149,10 @@ void main() {
     settingsRepository: DriftSettingsRepository(db),
     httpClient: httpClient,
     downloadDirectory: () async => downloadDir,
-    releaseBaseUri: () => Uri.parse('http://${server.address.host}:${server.port}/'),
+    releaseBaseUri: () => Uri.parse(
+      'http://${server.address.host}:${server.port}/',
+    ),
+    latestVersion: latestVersion,
   );
 
   test('首装：manifest → 下载校验 → 导入 → 版本键落库；再次调用幂等', () async {
@@ -217,6 +223,38 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('升级：已装 v1.0 落后时自动下载导入 v1.1 并更新版本键', () async {
+    // 先装 v1.0（word=apple）。
+    final packV1 = writePackFile(version: '1.0', word: 'apple');
+    final (serverV1, _) = await startServer(pack: packV1);
+    addTearDown(serverV1.close);
+    final instV1 = installer(serverV1);
+    expect(await instV1.ensureInstalled(), '1.0');
+    expect(
+      (await DriftSettingsRepository(db).load()).wordbookVersion,
+      '1.0',
+    );
+
+    // 发布 v1.1（word=banana）：同一 App 以最新版本常量重新判定并升级。
+    final packV11 = writePackFile(version: '1.1', word: 'banana');
+    final (serverV11, _) = await startServer(pack: packV11);
+    addTearDown(serverV11.close);
+    final instV11 = installer(serverV11, latestVersion: '1.1');
+    final version = await instV11.ensureInstalled();
+    expect(version, '1.1');
+    expect(
+      (await DriftSettingsRepository(db).load()).wordbookVersion,
+      '1.1',
+    );
+    final words = await db.select(db.words).get();
+    expect(words.single.word, 'banana');
+    // 升级备份已写入（导入器口径，§8.2）。
+    expect(backupDir.listSync(), isNotEmpty);
+
+    // 已是最新：幂等 no-op。
+    expect(await instV11.ensureInstalled(), isNull);
   });
 }
 

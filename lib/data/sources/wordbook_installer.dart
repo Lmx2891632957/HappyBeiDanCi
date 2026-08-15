@@ -23,10 +23,13 @@ class WordbookInstallException implements Exception {
   String toString() => 'WordbookInstallException(${failure.name}): $message';
 }
 
-/// 词库首装服务（TECH_DOC §8.2 首装流程）：拉取 manifest → 下载发布版 DB →
-/// SHA-256 校验 → [WordbookImporter] 导入（同事务，版本键由导入器写入）。
+/// 词库首装与升级服务（TECH_DOC §8.2 首装与升级流程）：拉取 manifest →
+/// 下载发布版 DB → SHA-256 校验 → [WordbookImporter] 导入（同事务，版本键
+/// 由导入器写入）。
 ///
-/// - `settings.wordbook_version` 非空即视为已装，幂等跳过；
+/// - `settings.wordbook_version` 等于当前发布版本 → 幂等跳过；未装或落后
+///   （如 v1.0 → v1.1）→ 自动下载导入升级，升级复用导入器的备份与
+///   word_id 重映射，失败保留旧词库不影响学习；
 /// - 并发触发（启动后台 + 今日页重试）经实例级 in-flight Future 串行化，
 ///   避免双导入竞态；
 /// - 失败不产生半装状态（下载失败删半包；导入失败事务回滚），
@@ -38,16 +41,23 @@ class WordbookInstaller {
     HttpClient? httpClient,
     Future<Directory> Function()? downloadDirectory,
     Uri Function()? releaseBaseUri,
+    String? latestVersion,
   }) : _http = httpClient ?? HttpClient(),
        _downloadDirectory =
            downloadDirectory ?? _defaultDownloadDirectory,
-       _releaseBaseUri = releaseBaseUri ?? _defaultReleaseBaseUri;
+       _releaseBaseUriOverride = releaseBaseUri,
+       _latestVersion = latestVersion ?? defaultLatestVersion;
+
+  /// 当前发布词库版本（与内容管线发布号对齐；v1.1 起支持升级，发布新词库时
+  /// 手动更新；多词书/自动版本探测见 M2 增强，TECH_DOC §8.2）。
+  static const String defaultLatestVersion = '1.1';
 
   final WordbookImporter importer;
   final SettingsRepository settingsRepository;
   final HttpClient _http;
   final Future<Directory> Function() _downloadDirectory;
-  final Uri Function() _releaseBaseUri;
+  final Uri Function()? _releaseBaseUriOverride;
+  final String _latestVersion;
 
   Future<String?>? _inFlight;
 
@@ -66,8 +76,8 @@ class WordbookInstaller {
   Future<String?> _ensureInstalled() async {
     final settings = await settingsRepository.load();
     final installed = settings.wordbookVersion;
-    if (installed != null && installed.isNotEmpty) {
-      return null; // 已装：幂等跳过。
+    if (installed == _latestVersion) {
+      return null; // 已是最新版本：幂等跳过。
     }
     try {
       final baseUri = _releaseBaseUri();
@@ -99,16 +109,15 @@ class WordbookInstaller {
     }
   }
 
-  /// M1 单词书固定取当前发布版本号（与内容管线 `VERSION` 解耦：客户端按
-  /// `wordbook-gaokao-3500-v1.0` 拉取；多词书/版本探测见 M2 增强）。
-  static String _latestVersion() => '1.0';
-
-  static Uri _defaultReleaseBaseUri() => Uri.parse(
-    AppConstants.audioPackReleaseBaseUrl(
-      AppConstants.defaultWordbookPackBase,
-      _latestVersion(),
-    ),
-  );
+  /// 发布基址：测试可注入 override；默认按当前发布版本拼 GitHub Releases URL。
+  Uri _releaseBaseUri() =>
+      _releaseBaseUriOverride?.call() ??
+      Uri.parse(
+        AppConstants.audioPackReleaseBaseUrl(
+          AppConstants.defaultWordbookPackBase,
+          _latestVersion,
+        ),
+      );
 
   Future<Map<String, dynamic>> _fetchManifest(Uri baseUri) async {
     final request = await _http
