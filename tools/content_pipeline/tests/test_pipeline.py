@@ -297,6 +297,11 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(manifest["word_count"], 5)
             db_art = manifest["artifacts"]["wordbook_db"]
             self.assertEqual(db_art["sha256"], common.sha256_file(out / db_art["file"]))
+            # 打包版本写入 DB meta.wordlist_version（App 升级判定，§8.2）。
+            meta_ver = sqlite3.connect(out / db_art["file"]).execute(
+                "SELECT value FROM meta WHERE key='wordlist_version'"
+            ).fetchone()[0]
+            self.assertEqual(meta_ver, "9.9")
             zip_art = manifest["artifacts"]["audio_zip"]
             self.assertEqual(zip_art["file_count"], 2)
             self.assertEqual(len(manifest["artifacts"]["audio_files"]), 2)

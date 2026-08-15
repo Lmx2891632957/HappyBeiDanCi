@@ -25,7 +25,28 @@ def _verify_db(db_path: Path) -> int:
         count = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
         if not ok:
             raise RuntimeError(f"DB 完整性校验失败: {db_path}")
+        # meta.wordlist_version 由打包版本统一覆盖（App 升级判定依据，§8.2），
+        # 构建期固定写入 common.VERSION 仅作为默认值，不以内容版本冒充发布版本。
+        if conn.execute(
+            "SELECT COUNT(*) FROM meta WHERE key='wordlist_version'"
+        ).fetchone()[0] == 0:
+            raise RuntimeError(f"DB 缺少 meta.wordlist_version: {db_path}")
         return count
+    finally:
+        conn.close()
+
+
+def _stamp_db_version(db_path: Path, version: str) -> None:
+    """把发布版本写入打包 DB 的 meta.wordlist_version（§8.2 升级判定依据）。
+
+    必须在计算 SHA-256 与生成 manifest 之前执行，保证 manifest 与文件一致。
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "UPDATE meta SET value=? WHERE key='wordlist_version'", (version,)
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -59,6 +80,7 @@ def package(
 
     word_count = _verify_db(db)
     shutil.copy2(db, db_dest)
+    _stamp_db_version(db_dest, version)
     audio_info = _zip_audio(audio_dir, zip_dest)
 
     audio_files = {
