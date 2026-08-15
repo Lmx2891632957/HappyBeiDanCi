@@ -924,7 +924,7 @@ flowchart LR
 | 音频 | Edge TTS 美音批量生成（`en-US-AriaNeural`），每词 1 个 mp3（实测 48 kbps / 24 kHz，符合 TD-08 48–96 kbps）；文件命名 `audio_key = 词表序号`（6 位补零）保持稳定；脚本带限速、指数退避重试与断点续跑 |
 | 考频 | M1 以 ECDICT `frq`（当代语料库词频序）为**考频代理**：`frq ≤ 4000` → high、`frq ≤ 12000` → medium、其余 low（缺失按 medium）；真题语料考频统计（PRD F1 原口径）延后 M2+，属文档化取舍 |
 | 质检 | 每 1000 词人工抽检：释义顺序正确、例句难度不超高中阅读、音频清晰无吞音；不合格词条打回对应阶段 |
-| 打包 | 词库 DB（words/wordbooks/wordbook_items）+ 音频 zip + manifest（版本、SHA-256）；产物上传对象存储/CDN，App 按版本拉取 |
+| 打包 | 词库 DB（words/wordbooks/wordbook_items）+ 音频 zip + manifest（版本、SHA-256）；**打包时把发布版本写入 DB `meta.wordlist_version`**（App 升级判定依据，§8.2），再计算 SHA-256 生成 manifest；产物上传对象存储/CDN，App 按版本拉取 |
 
 > 例句规则调整说明（2026-08-15）：原"优先短句"实现为按长度升序取最短，导致 v1.0
 > 例句 69.7% 为 3 词套话（中位数 3 词）；调整为长度区间偏好 + 套话惩罚后，同一
