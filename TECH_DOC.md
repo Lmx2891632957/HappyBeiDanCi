@@ -103,7 +103,7 @@ graph TD
 | 状态管理 | Riverpod 2.x | 编译期安全、易测试；社区主流 |
 | 本地数据库 | Drift（基于 SQLite，启用 WAL） | 类型安全、迁移友好；满足 T-04 |
 | 间隔重复算法 | **FSRS-5**（移植自官方 Python 参考实现） | 开源、参数可调、Anki 验证；备选 SM-2（见第 7 章） |
-| 本地通知 | flutter_local_notifications 22.3.0 + timezone 0.11.1 | 每日提醒（§11.1）；Android 13+ 需 POST_NOTIFICATIONS 权限；timezone 数据随包（约 200 KB） |
+| 本地通知 | flutter_local_notifications 22.3.0 + timezone 0.11.1 | 每日提醒（§11.1）；Android 13+ 需 POST_NOTIFICATIONS 权限；timezone 数据随包（约 200 KB）；Android 需启用 core library desugaring（`compileOptions.isCoreLibraryDesugaringEnabled` + `desugar_jdk_libs 2.1.4`，插件官方要求） |
 | 音频播放 | just_audio 0.10.6（在线流 + 本地文件统一接口） | M1 发音接入（2026-08-13）；支持预加载与缓存；例句发音 M2 复用；Android 依赖 ExoPlayer |
 | 后台下载 | workmanager 0.10.7（Android 封装 + 前台服务） | 离线包断点续传、Wi-Fi 策略；dataSync 前台服务需 gradle 属性 `workmanager.enableDataSyncForegroundService=true`（§11.2）；Android 侧引入 androidx.work 原生依赖 |
 | 解压 | archive 4.0.9（纯 Dart） | 离线包 zip 解压与原子替换（§9.2），无原生依赖，体积影响约 200 KB |
