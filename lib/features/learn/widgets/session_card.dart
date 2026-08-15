@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/l10n/app_localizations.dart';
 import '../../../app/providers.dart';
+import '../../../domain/models/ipa_display.dart';
 import '../../../domain/models/word.dart';
 
 /// 会话卡片（学习/复习共用，TECH_DOC §4 补充说明 5）。
@@ -56,6 +57,8 @@ class _SessionCardState extends ConsumerState<SessionCard> {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final word = widget.word;
+    // 空音标（ECDICT 兜底缺失）不展示，避免出现 "//"（TECH_DOC §10.2）。
+    final ipa = normalizeIpaForDisplay(word.phonetic);
     return SizedBox(
       key: const ValueKey('front'),
       width: double.infinity,
@@ -72,13 +75,15 @@ class _SessionCardState extends ConsumerState<SessionCard> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              '/${word.phonetic}/',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            if (ipa.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '/$ipa/',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 16),
             // 发音按钮：发音开关关闭或无可用播放源时为 no-op（§9.1）。
             IconButton(

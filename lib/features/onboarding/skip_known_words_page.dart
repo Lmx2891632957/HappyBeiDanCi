@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/l10n/app_localizations.dart';
 import '../../app/providers.dart';
+import '../../domain/models/ipa_display.dart';
 import '../../domain/models/word.dart';
 
 /// 熟词快筛页（PRD F1 熟词跳过 / TECH_DOC §8.3）。
@@ -314,10 +315,12 @@ class _SkipKnownWordsPageState extends ConsumerState<SkipKnownWordsPage> {
           );
         }
         final word = _words[index];
+        // 空音标（ECDICT 兜底缺失）隐藏，避免展示 "//"（TECH_DOC §10.2）。
+        final ipa = normalizeIpaForDisplay(word.phonetic);
         return CheckboxListTile(
           dense: true,
           title: Text(word.word),
-          subtitle: Text('/${word.phonetic}/'),
+          subtitle: ipa.isEmpty ? null : Text('/$ipa/'),
           value: _skipped.contains(word.id),
           onChanged: (value) => _toggle(word, value ?? false),
         );
