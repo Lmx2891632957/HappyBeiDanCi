@@ -676,25 +676,6 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 - 词库静态数据（words / wordbooks）以**发布版本 DB 文件**导入（见第 10 章），用户数据表独立；词库升级时做 `words` 表整体替换并保留 `word_id` 稳定性（以 word 文本 + 版本作为映射键）。
 - 数据导出：`review_logs` + `user_words` 导出为 CSV/JSON（设置页触发，系统分享面板输出），满足 F4"为用户未来迁移兜底"。
 
-<<<<<<< HEAD
-> 词库导入实现口径（2026-08-13 单元 2 落地时明确）：
-> - **包格式校验**：发布版 DB 必须含 `meta` 表且 `schema_version=1`、
->   `wordlist_version` 非空，缺任一字段拒绝导入（防止拿错文件覆盖内容表）。
-> - **版本记录**：`settings.wordbook_version` 记录当前内容版本（settings 为通用
->   键值表，无 schema 变更）；重复导入同版本为幂等 no-op。
-> - **升级备份**：替换内容表前，先把 user_words / review_logs / sessions /
->   session_items / daily_stats 全量导出为 JSON 备份文件
->   （`<应用私有目录>/backups/wordbook_upgrade_backup_<旧版本>_<时间戳>.json`），
->   备份失败则中止导入；备份文件保留不自动删除（人工可恢复）。
-> - **word_id 映射**：导入器按「word 文本」建立旧→新映射（发布包内 id 为文本
->   哈希，跨版本稳定，§10.2）；新包仍存在的词 remap 用户行，已删除的词
->   移除对应 user_words / session_items 行（复习日志保留原文 word_id 历史，
->   可解析时同样 remap）。
-> - **导入方式**：读取发布版 DB（sqlite3 只读）后经 Drift 批量事务写入
->   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
->   完成，崩溃回滚不产生半升级状态。
-=======
->>>>>>> feature/m1-acceptance
 > 导出实现口径（2026-08-13 单元 4 落地时明确）：
 > - **入口**：设置页「数据导出」提供 CSV / JSON 两种格式，触发后生成临时文件
 >   并经 share_plus（Android `ACTION_SEND`）调起系统分享面板；文件写入
@@ -712,8 +693,6 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 > - **纯逻辑可测**：CSV/JSON 序列化器为纯 Dart（`lib/domain/services/
 >   data_export_formatter.dart`），文件写盘与分享由薄壳 `DataExporter`
 >   承担，测试覆盖序列化与写盘、分享调用注入桩。
-<<<<<<< HEAD
-=======
 > 词库导入实现口径（2026-08-13 单元 2 落地时明确）：
 > - **包格式校验**：发布版 DB 必须含 `meta` 表且 `schema_version=1`、
 >   `wordlist_version` 非空，缺任一字段拒绝导入（防止拿错文件覆盖内容表）。
@@ -744,7 +723,6 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 > - **失败语义**：下载/校验/导入任一步失败不产生半装状态（导入同事务），
 >   应用显示「无词库」并允许重试；在线兜底不涉及（词库是核心前置，失败仅
 >   影响新装体验，不影响已装用户升级）。
->>>>>>> feature/m1-acceptance
 
 ### 8.3 新词学习顺序（乱序的确定性）
 
