@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../core/constants.dart';
 import '../../domain/models/word.dart';
 import '../../domain/models/wordbook.dart';
 import '../../domain/models/wordbook_item.dart';
 import '../../domain/services/wordbook_repository.dart';
+import '../../domain/services/wordbook_shuffle.dart';
 import '../local/app_database.dart';
 
 /// 词书/词条仓储实现（Drift，TECH_DOC §8.1 wordbooks/words/wordbook_items）。
@@ -105,6 +107,68 @@ class DriftWordbookRepository implements WordbookRepository {
       ..where(_db.userWords.wordId.isNull());
     final row = await query.getSingle();
     return row.read(countAll()) ?? 0;
+  }
+
+  @override
+  Future<void> ensureShuffledOrder({
+    required int wordbookId,
+    required DateTime installTime,
+  }) async {
+    // 读状态与写排列放在同一事务：Drift 事务串行执行，两次并发初始化不会
+    // 用不同种子交错写 shuffled，避免"标记与排列不一致"的半初始化状态。
+    await _db.transaction(() async {
+      final rows = await (_db.select(
+        _db.wordbookItems,
+      )..where((t) => t.wordbookId.equals(wordbookId)))
+          .get();
+      if (rows.isEmpty) {
+        // 空词书无可排；不写种子键，避免后续内容就位时误判为"已初始化"。
+        return;
+      }
+
+      // 词书内容版本：词库升级会整体替换 wordbook_items（shuffled 回到词表
+      // 顺序），版本段不一致时用已存种子重排，学习顺序不漂回字母序（§8.3）。
+      final versionRow = await (_db.select(
+        _db.settings,
+      )..where((t) => t.key.equals(AppSettingKeys.wordbookVersion)))
+          .getSingleOrNull();
+      final version = versionRow?.value ?? '';
+
+      final seedKey = AppSettingKeys.shuffleSeed(wordbookId);
+      final stored = await (_db.select(
+        _db.settings,
+      )..where((t) => t.key.equals(seedKey)))
+          .getSingleOrNull();
+      final parsed = _parseStoredSeed(stored?.value, version);
+      if (parsed != null && parsed.valid) {
+        return; // 已初始化且版本一致：O(1) no-op
+      }
+
+      // 按 seq 排序后整表做一次确定性洗牌：shuffled = 排列序号，与原 seq
+      // 无关（seq 不必连续，按位置取秩）。
+      final bySeq = [...rows]..sort((a, b) => a.seq.compareTo(b.seq));
+      final seed =
+          parsed?.seed ??
+          WordbookShuffle.seedFor(
+            wordbookId: wordbookId,
+            installTime: installTime,
+          );
+      final perm = WordbookShuffle.ranks(seed, bySeq.length);
+
+      for (var i = 0; i < bySeq.length; i++) {
+        await (_db.update(
+          _db.wordbookItems,
+        )..where(
+          (t) =>
+              t.wordbookId.equals(wordbookId) &
+              t.wordId.equals(bySeq[i].wordId),
+        )).write(WordbookItemsCompanion(shuffled: Value(perm[i])));
+      }
+      final marker = version.isEmpty ? '$seed' : '$seed:$version';
+      await _db.into(_db.settings).insertOnConflictUpdate(
+        SettingsCompanion.insert(key: seedKey, value: marker),
+      );
+    });
   }
 
   @override
@@ -295,5 +359,29 @@ class DriftWordbookRepository implements WordbookRepository {
     } catch (error) {
       throw StateError('words 损坏：examples JSON 解析失败（wordId=$wordId）');
     }
+  }
+
+  /// 解析已存乱序种子标记：`"<seed>"`（无版本，测试 fixture 场景）或
+  /// `"<seed>:<wordbook_version>"`。返回 null 表示从未初始化；
+  /// `valid=false` 表示种子存在但版本不匹配（词库升级后沿用旧种子重排）。
+  ({int seed, bool valid})? _parseStoredSeed(String? value, String version) {
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+    if (version.isEmpty) {
+      final seed = int.tryParse(value);
+      return seed == null ? null : (seed: seed, valid: true);
+    }
+    final sep = value.indexOf(':');
+    if (sep <= 0) {
+      // 无版本段：视为未初始化（升级标记缺失，需重新生成种子并记录版本）。
+      return null;
+    }
+    final seed = int.tryParse(value.substring(0, sep));
+    if (seed == null) {
+      // 坏值不静默沿用：按首次初始化口径重新生成种子。
+      return null;
+    }
+    return (seed: seed, valid: value.substring(sep + 1) == version);
   }
 }

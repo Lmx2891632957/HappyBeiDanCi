@@ -1,7 +1,9 @@
 # 背单词软件技术文档（TECH_DOC v1.0）
 
 > 关联文档：[PRD.md](./PRD.md)（v0.3 定稿，决策已确认）
-> 状态：v1.2；技术决策已全部确认（2026-08-12），可进入开发
+> 状态：v1.3；技术决策已全部确认（2026-08-12），可进入开发
+> v1.3 变更：TD-06 运行时乱序初始化落地（确定性种子持久化 + 词库升级同种子
+> 重排，见 §4/§5.1/§8.3）
 > v1.2 变更：M1 Onboarding 最小版落地（首启判定、路由、词书选择口径与熟词跳过取舍，见 §4/§5.1）
 > 读者：Android/跨平台开发工程师、测试、内容运营、后续接手的维护者
 
@@ -193,9 +195,10 @@ test/
 >      M1 单词书场景下与今日页“默认第一个”等价（§5.1），暂不新增
 >      `active_wordbook_id` 设置键；多词书选择持久化与
 >      `UserWordRepository.getDueWords` 按词书过滤同属后续迭代。
->    - **TD-06 运行时乱序初始化未触发**：测试 fixture 与词库包预置 `shuffled`，
->      Onboarding 不生成运行时乱序；`seed = hash(wordbook_id, 设备安装时间)`
->      的运行时初始化实现留待内容管线交付后按 §8.3 落地，表结构不变。
+>    - **TD-06 运行时乱序已落地（2026-08-15）**：`wordbook_items.shuffled` 由
+>      今日页首载时按 §8.3 初始化（`ensureShuffledOrder`，幂等；settings 记录
+>      种子与词书版本，词库升级后以同种子重排）。测试 fixture 与词库包预置
+>      `shuffled = seq` 仅作为"未初始化"基线，不再承担乱序职责；表结构不变。
 
 > 结构补充说明（2026-08-13 单元 4 设置页落地时新增）：
 > 8. **路由与装配增补**：`lib/app/router.dart` 增补 `/settings`（设置页）与
@@ -233,6 +236,9 @@ test/
      `AppConstants.defaultDailyNewWords` 一致；词书选择默认选中第一个
      （多词书完整支持见 §4 补充说明 7）。
 3. 今日任务页计算（TD-07 收口时明确的数据流，见 §6.1）：
+   - 先经 `WordbookRepository.ensureShuffledOrder` 确保词书已完成首启乱序
+     （TD-06，幂等；首次调用按确定性种子生成 `shuffled` 并持久化，词库升级
+     后以同种子重排，见 §8.3），再计算待学/待复习；
    - 待学新词 = min(每日目标, 词书剩余新词，按"高频→中频→低频"优先）；
    - 待复习 = 所有 `due_date <= 今日结束` 的词，按逾期严重度排序，截取软上限（默认 300）。
    - 实现：今日页通过 `SettingsRepository.load` 读设置、`WordbookRepository` 取默认
@@ -732,6 +738,20 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 - 进度稳定，不会因重启/换天导致顺序漂移；
 - 考前突击时可切换"按词表顺序"。
 
+> 实现口径（2026-08-15 落地）：
+> - **种子与持久化**：`seed = hash(wordbook_id, 首次初始化时间)`（FNV-1a
+>   32 位非加密散列；"设备安装时间"以首次初始化时刻近似）。settings 键
+>   `shuffled_seed_<wordbookId>` 记录 `"<seed>[:<wordbook_version>]"`。
+>   洗牌为纯算术 Fisher–Yates（xorshift32 伪随机源），不依赖 Dart `Random`
+>   实现细节，同一 (seed, 词数) 恒产出同一排列，可跨进程复现（实现与 golden
+>   断言见 `lib/domain/services/wordbook_shuffle.dart` 及对应单测）。
+> - **幂等与升级**：今日页加载时调用 `ensureShuffledOrder`，已初始化且词书
+>   版本一致时为 O(1) no-op；词库升级（wordbook_items 整体替换后 `shuffled`
+>   回到词表顺序）检测到版本段不一致，以已存种子重新乱序，学习顺序不漂回
+>   字母序。种子键与 `shuffled` 列同事务写入，避免"记了种子但排序未生效"
+>   的半初始化状态。
+> - **空词书**：无可排条目时不写种子键，内容就位后可正常初始化。
+
 > TD-07 收口时明确（WordbookRepository 契约）：
 > - `getWordsByBook(bookId, {limit, offset})` 返回词书内**尚未学习**的词
 >   （无 `user_words` 行且 `is_skipped = 0`），按“频段（high→medium→low）、
@@ -1077,7 +1097,7 @@ flowchart LR
 | TD-03 | 本地存储 | Drift（SQLite + WAL） | sqflite 裸 SQL |
 | TD-04 | 复习算法 | FSRS-5（Dart 移植 + 官方 golden 测试） | SM-2 |
 | TD-05 | 学习步骤 | learning_steps=[10m]，目标保持率 0.9 | 可按内容质量调参 |
-| TD-06 | 乱序实现 | 首启种子乱序并持久化（确定性） | 每日重新洗牌（不推荐，进度漂移） |
+| TD-06 | 乱序实现 | 首启种子乱序并持久化（确定性；2026-08-15 已落地，见 §8.3） | 每日重新洗牌（不推荐，进度漂移） |
 | TD-07 | 会话续学 | 独立 sessions/session_items 快照表 | 仅内存恢复（不满足 T-05） |
 | TD-08 | 音频格式 | mp3，48–96 kbps，按词表序号命名 | opus（压缩率更高，但播放兼容性低） |
 | TD-09 | 词库分发 | 发布版 DB 文件 + 音频 zip + manifest | 内置全部内容（包体过大） |
@@ -1108,4 +1128,5 @@ flowchart LR
 | 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
 | 界面语言（language） | ''（跟随系统） | 简体中文 / English 切换（PRD F7）；选择后存 `zh`/`en`，键名 `language` |
 | 深色模式（theme_mode） | system | system / light / dark（PRD F7），键名 `theme_mode` |
+| 乱序种子键（shuffled_seed_<wordbookId>） | 无（首次初始化时写入） | 值 = `"<seed>[:<wordbook_version>]"`；词库升级后以同种子重排（TD-06，§8.3） |
 | 提醒通知 ID / 频道 | 1000 / `daily_reminder` | flutter_local_notifications（§11.1） |

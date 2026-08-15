@@ -204,6 +204,12 @@ final todayPlanProvider = FutureProvider.autoDispose<TodayPlan>((ref) async {
   }
 
   final book = wordbooks.first; // sortOrder 升序第一个 = 默认词书。
+  // TD-06：首次进入词书即按确定性种子乱序（幂等；settings 记录种子与词书
+  // 版本，TECH_DOC §8.3），保证新老用户的学习顺序都不停留在词表字母序。
+  await wordbookRepository.ensureShuffledOrder(
+    wordbookId: book.id,
+    installTime: DateTime.now(),
+  );
   final remainingNew = await wordbookRepository.countRemainingNewWords(book.id);
   final now = DateTime.now();
   final todayStart = TimeUtils.todayStart(now, timezone: settings.timezone);

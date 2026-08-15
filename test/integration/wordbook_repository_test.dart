@@ -8,10 +8,12 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:happy_bei_dan_ci/core/constants.dart';
 import 'package:happy_bei_dan_ci/data/local/app_database.dart';
 import 'package:happy_bei_dan_ci/data/repositories/drift_wordbook_repository.dart';
 import 'package:happy_bei_dan_ci/domain/models/word.dart';
 import 'package:happy_bei_dan_ci/domain/services/wordbook_repository.dart';
+import 'package:happy_bei_dan_ci/domain/services/wordbook_shuffle.dart';
 
 void main() {
   late Directory tempDir;
@@ -343,6 +345,122 @@ void main() {
       expect(
         (await repo.searchWordsByBook(1, 'a')).map((w) => w.word),
         ['apple', 'app', 'banana', 'water'],
+      );
+    });
+  });
+
+  group('首启乱序初始化（TD-06 / TECH_DOC §8.3）', () {
+    final install = DateTime.fromMillisecondsSinceEpoch(1_750_000_000_000);
+
+    /// 种子 8 个同频段（high）词：seq = shuffled = id，模拟词库包初始状态
+    /// （管线把 shuffled 预置为词表顺序，TECH_DOC §10.2 打包口径）。
+    Future<void> seedShuffleBook(AppDatabase db) async {
+      await seedBook(db, totalCount: 8);
+      for (var id = 1; id <= 8; id++) {
+        await seedWord(db, id: id, word: 'w$id', frequency: 'high');
+        await seedItem(db, wordId: id, seq: id, shuffled: id);
+      }
+    }
+
+    Future<List<int>> shuffledBySeq(AppDatabase db) async {
+      final rows = await (db.select(
+        db.wordbookItems,
+      )..where((t) => t.wordbookId.equals(1)))
+          .get();
+      rows.sort((a, b) => a.seq.compareTo(b.seq));
+      return [for (final r in rows) r.shuffled];
+    }
+
+    test('首次调用：shuffled 落为确定性排列，新词序列与词表顺序不同', () async {
+      final (db, repo) = openRepo('shuffle_first');
+      await seedShuffleBook(db);
+
+      await repo.ensureShuffledOrder(wordbookId: 1, installTime: install);
+
+      final shuffled = await shuffledBySeq(db);
+      expect(shuffled, isNot([0, 1, 2, 3, 4, 5, 6, 7]));
+      expect(shuffled.toSet(), {0, 1, 2, 3, 4, 5, 6, 7});
+      // 与纯逻辑生成器一致（仓储只是把生成器结果落库）。
+      final seed = WordbookShuffle.seedFor(wordbookId: 1, installTime: install);
+      expect(shuffled, WordbookShuffle.ranks(seed, 8));
+
+      // getWordsByBook 同频段内按 shuffled 递增：首词不再是词表第一个。
+      final words = await repo.getWordsByBook(1);
+      expect(words, hasLength(8));
+      final byShuffled =
+          (await db.select(db.wordbookItems).get())
+            ..sort((a, b) => a.shuffled.compareTo(b.shuffled));
+      expect(
+        words.map((w) => w.id).toList(),
+        [for (final r in byShuffled) r.wordId],
+      );
+      expect(words.first.id, isNot(1));
+    });
+
+    test('幂等：重复调用（换 installTime）不改变已乱序结果', () async {
+      final (db, repo) = openRepo('shuffle_idempotent');
+      await seedShuffleBook(db);
+
+      await repo.ensureShuffledOrder(wordbookId: 1, installTime: install);
+      final first = await shuffledBySeq(db);
+      await repo.ensureShuffledOrder(
+        wordbookId: 1,
+        installTime: install.add(const Duration(days: 1)),
+      );
+      expect(await shuffledBySeq(db), first);
+    });
+
+    test('词库升级：版本段变化且 shuffled 回到词表顺序时，沿用已存种子重排', () async {
+      final (db, repo) = openRepo('shuffle_upgrade');
+      await seedShuffleBook(db);
+      await db.into(db.settings).insert(
+        SettingsCompanion.insert(
+          key: AppSettingKeys.wordbookVersion,
+          value: 'wordbook-gaokao-3500-v1.0',
+        ),
+      );
+
+      await repo.ensureShuffledOrder(wordbookId: 1, installTime: install);
+      final beforeUpgrade = await shuffledBySeq(db);
+
+      // 模拟升级：词库包整体替换 wordbook_items（shuffled 回 seq）并升版本。
+      final rows = await db.select(db.wordbookItems).get();
+      for (final r in rows) {
+        await (db.update(
+          db.wordbookItems,
+        )..where(
+          (t) =>
+              t.wordbookId.equals(r.wordbookId) & t.wordId.equals(r.wordId),
+        )).write(WordbookItemsCompanion(shuffled: Value(r.seq)));
+      }
+      await (db.update(
+        db.settings,
+      )..where((t) => t.key.equals(AppSettingKeys.wordbookVersion)))
+          .write(
+            SettingsCompanion(
+              value: Value('wordbook-gaokao-3500-v1.1'),
+            ),
+          );
+
+      await repo.ensureShuffledOrder(
+        wordbookId: 1,
+        installTime: install.add(const Duration(days: 1)),
+      );
+      // 同种子重排：词未增删时顺序与升级前完全一致，进度不漂移。
+      expect(await shuffledBySeq(db), beforeUpgrade);
+    });
+
+    test('空词书：no-op 且不写种子键（内容就位后可正常初始化）', () async {
+      final (db, repo) = openRepo('shuffle_empty');
+      await seedBook(db);
+
+      await repo.ensureShuffledOrder(wordbookId: 1, installTime: install);
+
+      expect(await db.select(db.wordbookItems).get(), isEmpty);
+      final rows = await db.select(db.settings).get();
+      expect(
+        rows.where((r) => r.key == AppSettingKeys.shuffleSeed(1)),
+        isEmpty,
       );
     });
   });

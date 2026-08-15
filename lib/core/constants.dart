@@ -123,6 +123,12 @@ abstract final class AppSettingKeys {
 
   /// 深色模式（'system' / 'light' / 'dark'，PRD F7）。
   static const String themeMode = 'theme_mode';
+
+  /// 词书乱序种子键（TD-06，按词书独立）：
+  /// 值 = `"<seed>[:<wordbook_version>]"`，`wordbook_version` 段用于词库升级
+  /// 后以同一种子重新乱序（TECH_DOC §8.3）；动态键名不参与 [all] 回填。
+  static String shuffleSeed(int wordbookId) => 'shuffled_seed_$wordbookId';
+
   /// 全部键名（用于缺键回填与批量保存）。
   static const List<String> all = [
     dailyNewWords,

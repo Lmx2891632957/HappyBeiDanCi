@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:happy_bei_dan_ci/app/app.dart';
 import 'package:happy_bei_dan_ci/app/providers.dart';
 import 'package:happy_bei_dan_ci/data/local/app_database.dart';
+import 'package:happy_bei_dan_ci/data/repositories/drift_wordbook_repository.dart';
 
 import '../helpers/fixture.dart';
 
@@ -41,12 +42,20 @@ void main() {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
+    // TD-06：今日页加载时已按确定性种子乱序，学习顺序与词表顺序无关；
+    // 测试从仓储读取实际乱序后的新词顺序（进度语义不变，仅顺序不固定）。
+    final expected = await DriftWordbookRepository(db).getWordsByBook(
+      1,
+      limit: 3,
+    );
+    expect(expected, hasLength(3));
+
     await tester.tap(find.text('Start learning'));
     await tester.pumpAndSettle();
 
     // 三张卡依次作答（认识 → Good，FSRS 毕业为 Review）。
-    for (final expected in ['word1', 'word2', 'word3']) {
-      expect(find.text(expected), findsOneWidget);
+    for (final word in expected) {
+      expect(find.text(word.word), findsOneWidget);
       await tester.tap(find.text('Know it'));
       await tester.pumpAndSettle();
     }
@@ -69,12 +78,18 @@ void main() {
 
     await tester.tap(find.text('Start learning'));
     await tester.pumpAndSettle();
-    expect(find.text('word1'), findsOneWidget);
+
+    // 乱序后的实际学习顺序（与上一用例同源，保证断言与仓储口径一致）。
+    final expected = await DriftWordbookRepository(db).getWordsByBook(
+      1,
+      limit: 3,
+    );
+    expect(find.text(expected[0].word), findsOneWidget);
 
     // 答对 1 张后返回（AppBar 返回按钮触发 PopScope → interrupt 落库）。
     await tester.tap(find.text('Know it'));
     await tester.pumpAndSettle();
-    expect(find.text('word2'), findsOneWidget);
+    expect(find.text(expected[1].word), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
 
@@ -84,15 +99,18 @@ void main() {
     expect(snapshots, hasLength(1));
     expect(snapshots.single.position, 1);
     final items = await db.select(db.sessionItems).get();
-    expect(items.map((e) => e.wordId).toList(), [2, 3]);
+    expect(items.map((e) => e.wordId).toList(), [
+      expected[1].id,
+      expected[2].id,
+    ]);
 
-    // 继续：恢复后队列一致（下一张仍为 word2）。
+    // 继续：恢复后队列一致（下一张仍为乱序序列的第二张）。
     await tester.tap(find.text('Continue unfinished session'));
     await tester.pumpAndSettle();
-    expect(find.text('word2'), findsOneWidget);
+    expect(find.text(expected[1].word), findsOneWidget);
     await tester.tap(find.text('Know it'));
     await tester.pumpAndSettle();
-    expect(find.text('word3'), findsOneWidget);
+    expect(find.text(expected[2].word), findsOneWidget);
     await tester.tap(find.text('Know it'));
     await tester.pumpAndSettle();
 
