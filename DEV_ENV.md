@@ -66,8 +66,9 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
 ## 5. 词库与发布状态
 
-- 仓库已公开；GitHub Release `wordbook-gaokao-3500-v1.0` 已发布（词库 DB
-  2.7MB + 音频 zip 37MB + manifest，含 SHA-256）。
+- 仓库已公开；GitHub Release `wordbook-gaokao-3500-v1.1` 已发布（词库 DB
+  2.8MB + 音频 zip 37MB + manifest，含 SHA-256；例句筛选规则更新见 TECH_DOC
+  §10.2）；`wordbook-gaokao-3500-v1.0` 仍可访问。
 - 内容管线：`tools/content_pipeline`（Python 解释器
   `/Users/Zhuanz/miniconda3/bin/python3`）；TTS 3677 词已完成；`raw/`、`work/`、
   `output/` 均不入库。
