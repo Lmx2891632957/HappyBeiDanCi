@@ -480,6 +480,10 @@ class _FakeUserWordRepository implements UserWordRepository {
     }
     rows[(word.userId, word.wordbookId, word.wordId)] = word;
   }
+
+  @override
+  Future<List<UserWord>> getAll() async =>
+      throw UnimplementedError('本测试不使用');
 }
 
 /// 内存版复习日志仓储。

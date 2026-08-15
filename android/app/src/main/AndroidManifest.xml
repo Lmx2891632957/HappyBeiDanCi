@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 在线发音播放（just_audio，TECH_DOC §9.1）与离线包下载。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 每日提醒与前台服务通知（TECH_DOC §11.1；Android 13+ 运行时申请，
+         WorkManager 插件 manifest 亦会合并声明，此处显式保留便于审阅）。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- WorkManager dataSync 前台服务保活（TECH_DOC §11.2；Android 14+
          需类型专属权限，配合 gradle 属性
          workmanager.enableDataSyncForegroundService=true 使用）。 -->

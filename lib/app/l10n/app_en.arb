@@ -154,6 +154,72 @@
   "@audioDownloadNotificationChannelName": {
     "description": "离线发音包前台服务通知频道名"
   },
+  "settingsTitle": "Settings",
+  "settingsGoalSection": "Study goal",
+  "settingsDailyGoal": "Daily new words",
+  "settingsReviewCap": "Daily review cap",
+  "settingsReviewCapHint": "Overdue reviews above the cap are deferred to tomorrow",
+  "settingsReviewCapOff": "Off",
+  "settingsPronunciationSection": "Audio",
+  "settingsPronunciation": "Pronunciation",
+  "settingsCellularDownload": "Download audio on mobile data",
+  "settingsCellularDownloadHint": "Off by default to save data; downloads start on Wi-Fi",
+  "settingsReminderSection": "Daily reminder",
+  "settingsReminder": "Enable daily reminder",
+  "settingsReminderTime": "Reminder time",
+  "settingsAppearanceSection": "Appearance",
+  "settingsLanguage": "Language",
+  "settingsLanguageSystem": "System",
+  "settingsDarkMode": "Dark mode",
+  "settingsDarkSystem": "System",
+  "settingsDarkLight": "Light",
+  "settingsDarkDark": "Dark",
+  "settingsDataSection": "Data",
+  "settingsExportCsv": "Export review logs & word progress (CSV)",
+  "settingsExportJson": "Export review logs & word progress (JSON)",
+  "settingsExportSubject": "My word-learning data",
+  "settingsExportSuccess": "Exported {count} file(s)",
+  "@settingsExportSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsExportFailed": "Export failed: {error}",
+  "@settingsExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSaveFailed": "Failed to save settings: {error}",
+  "@settingsSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAbout": "About & data sources",
+  "settingsNotificationPermissionDenied": "Notifications are disabled. Enable them in system settings to get daily reminders.",
+  "settingsOpenSystemSettings": "Open settings",
+  "reminderNotificationTitle": "Time to review!",
+  "reminderNotificationBody": "Complete today's new words and reviews.",
+  "aboutTitle": "About",
+  "aboutPrivacyNote": "This is a free learning tool. All study data stays on your device and is never uploaded.",
+  "aboutSourcesTitle": "Data sources",
+  "aboutSourceGaokao": "Ministry of Education Gaokao English syllabus vocabulary",
+  "aboutSourceGaokaoDesc": "Word list scope; ECDICT gk tag used as the seed (no official machine-readable file)",
+  "aboutSourceEcdict": "ECDICT (MIT)",
+  "aboutSourceEcdictDesc": "Meanings, parts of speech, fallback phonetics, word-frequency proxy",
+  "aboutSourceIpa": "ipa-dict en_US (MIT, based on CMUdict)",
+  "aboutSourceIpaDesc": "American IPA phonetics (primary source)",
+  "aboutSourceTatoeba": "Tatoeba English sentences (CC BY 2.0 FR)",
+  "aboutSourceTatoebaDesc": "Example sentences; author attribution stored per word",
+  "aboutSourceTts": "Microsoft Edge TTS (en-US-AriaNeural)",
+  "aboutSourceTtsDesc": "American pronunciation audio generated in bulk",
   "resultsTitle": "Today's results",
   "resultsCheckinSuccess": "Check-in complete!",
   "resultsSummary": "Today: {newCount} new words · {reviewCount} reviews",

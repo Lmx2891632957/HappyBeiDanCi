@@ -350,6 +350,276 @@ abstract class AppLocalizations {
   /// **'Pronunciation pack download'**
   String get audioDownloadNotificationChannelName;
 
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsGoalSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Study goal'**
+  String get settingsGoalSection;
+
+  /// No description provided for @settingsDailyGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily new words'**
+  String get settingsDailyGoal;
+
+  /// No description provided for @settingsReviewCap.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily review cap'**
+  String get settingsReviewCap;
+
+  /// No description provided for @settingsReviewCapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue reviews above the cap are deferred to tomorrow'**
+  String get settingsReviewCapHint;
+
+  /// No description provided for @settingsReviewCapOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsReviewCapOff;
+
+  /// No description provided for @settingsPronunciationSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get settingsPronunciationSection;
+
+  /// No description provided for @settingsPronunciation.
+  ///
+  /// In en, this message translates to:
+  /// **'Pronunciation'**
+  String get settingsPronunciation;
+
+  /// No description provided for @settingsCellularDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download audio on mobile data'**
+  String get settingsCellularDownload;
+
+  /// No description provided for @settingsCellularDownloadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default to save data; downloads start on Wi-Fi'**
+  String get settingsCellularDownloadHint;
+
+  /// No description provided for @settingsReminderSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily reminder'**
+  String get settingsReminderSection;
+
+  /// No description provided for @settingsReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable daily reminder'**
+  String get settingsReminder;
+
+  /// No description provided for @settingsReminderTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder time'**
+  String get settingsReminderTime;
+
+  /// No description provided for @settingsAppearanceSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearanceSection;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsLanguageSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsLanguageSystem;
+
+  /// No description provided for @settingsDarkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get settingsDarkMode;
+
+  /// No description provided for @settingsDarkSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsDarkSystem;
+
+  /// No description provided for @settingsDarkLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsDarkLight;
+
+  /// No description provided for @settingsDarkDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsDarkDark;
+
+  /// No description provided for @settingsDataSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get settingsDataSection;
+
+  /// No description provided for @settingsExportCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'Export review logs & word progress (CSV)'**
+  String get settingsExportCsv;
+
+  /// No description provided for @settingsExportJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Export review logs & word progress (JSON)'**
+  String get settingsExportJson;
+
+  /// No description provided for @settingsExportSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'My word-learning data'**
+  String get settingsExportSubject;
+
+  /// No description provided for @settingsExportSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported {count} file(s)'**
+  String settingsExportSuccess(int count);
+
+  /// No description provided for @settingsExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed: {error}'**
+  String settingsExportFailed(String error);
+
+  /// No description provided for @settingsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save settings: {error}'**
+  String settingsSaveFailed(String error);
+
+  /// No description provided for @settingsAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About & data sources'**
+  String get settingsAbout;
+
+  /// No description provided for @settingsNotificationPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are disabled. Enable them in system settings to get daily reminders.'**
+  String get settingsNotificationPermissionDenied;
+
+  /// No description provided for @settingsOpenSystemSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get settingsOpenSystemSettings;
+
+  /// No description provided for @reminderNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Time to review!'**
+  String get reminderNotificationTitle;
+
+  /// No description provided for @reminderNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete today\'s new words and reviews.'**
+  String get reminderNotificationBody;
+
+  /// No description provided for @aboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get aboutTitle;
+
+  /// No description provided for @aboutPrivacyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a free learning tool. All study data stays on your device and is never uploaded.'**
+  String get aboutPrivacyNote;
+
+  /// No description provided for @aboutSourcesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data sources'**
+  String get aboutSourcesTitle;
+
+  /// No description provided for @aboutSourceGaokao.
+  ///
+  /// In en, this message translates to:
+  /// **'Ministry of Education Gaokao English syllabus vocabulary'**
+  String get aboutSourceGaokao;
+
+  /// No description provided for @aboutSourceGaokaoDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Word list scope; ECDICT gk tag used as the seed (no official machine-readable file)'**
+  String get aboutSourceGaokaoDesc;
+
+  /// No description provided for @aboutSourceEcdict.
+  ///
+  /// In en, this message translates to:
+  /// **'ECDICT (MIT)'**
+  String get aboutSourceEcdict;
+
+  /// No description provided for @aboutSourceEcdictDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Meanings, parts of speech, fallback phonetics, word-frequency proxy'**
+  String get aboutSourceEcdictDesc;
+
+  /// No description provided for @aboutSourceIpa.
+  ///
+  /// In en, this message translates to:
+  /// **'ipa-dict en_US (MIT, based on CMUdict)'**
+  String get aboutSourceIpa;
+
+  /// No description provided for @aboutSourceIpaDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'American IPA phonetics (primary source)'**
+  String get aboutSourceIpaDesc;
+
+  /// No description provided for @aboutSourceTatoeba.
+  ///
+  /// In en, this message translates to:
+  /// **'Tatoeba English sentences (CC BY 2.0 FR)'**
+  String get aboutSourceTatoeba;
+
+  /// No description provided for @aboutSourceTatoebaDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Example sentences; author attribution stored per word'**
+  String get aboutSourceTatoebaDesc;
+
+  /// No description provided for @aboutSourceTts.
+  ///
+  /// In en, this message translates to:
+  /// **'Microsoft Edge TTS (en-US-AriaNeural)'**
+  String get aboutSourceTts;
+
+  /// No description provided for @aboutSourceTtsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'American pronunciation audio generated in bulk'**
+  String get aboutSourceTtsDesc;
+
   /// No description provided for @resultsTitle.
   ///
   /// In en, this message translates to:

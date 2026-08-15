@@ -9,4 +9,8 @@ abstract interface class UserWordRepository {
 
   /// 评分后 upsert；批量写日志应合并事务（TECH_DOC §8.2）。
   Future<void> upsert(UserWord word);
+
+  /// 全量用户学习状态（数据导出用，TECH_DOC §8.2；按 wordbook_id/word_id
+  /// 稳定排序便于导出文件可复现）。
+  Future<List<UserWord>> getAll();
 }

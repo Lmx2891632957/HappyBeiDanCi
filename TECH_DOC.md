@@ -103,10 +103,11 @@ graph TD
 | 状态管理 | Riverpod 2.x | 编译期安全、易测试；社区主流 |
 | 本地数据库 | Drift（基于 SQLite，启用 WAL） | 类型安全、迁移友好；满足 T-04 |
 | 间隔重复算法 | **FSRS-5**（移植自官方 Python 参考实现） | 开源、参数可调、Anki 验证；备选 SM-2（见第 7 章） |
-| 本地通知 | flutter_local_notifications + timezone | 每日提醒；Android 13+ 需 POST_NOTIFICATIONS 权限 |
+| 本地通知 | flutter_local_notifications 22.3.0 + timezone 0.11.1 | 每日提醒（§11.1）；Android 13+ 需 POST_NOTIFICATIONS 权限；timezone 数据随包（约 200 KB） |
 | 音频播放 | just_audio 0.10.6（在线流 + 本地文件统一接口） | M1 发音接入（2026-08-13）；支持预加载与缓存；例句发音 M2 复用；Android 依赖 ExoPlayer |
 | 后台下载 | workmanager 0.10.7（Android 封装 + 前台服务） | 离线包断点续传、Wi-Fi 策略；dataSync 前台服务需 gradle 属性 `workmanager.enableDataSyncForegroundService=true`（§11.2）；Android 侧引入 androidx.work 原生依赖 |
 | 解压 | archive 4.0.9（纯 Dart） | 离线包 zip 解压与原子替换（§9.2），无原生依赖，体积影响约 200 KB |
+| 系统分享 | share_plus 13.3.0 | 数据导出经系统分享面板（§8.2 导出）；Android 侧走 ACTION_SEND，无额外权限 |
 | i18n | Flutter 官方 l10n（ARB 文件） | 界面中英双语（F7） |
 | 深色模式 | Material 3 主题系统 | 低成本（F7） |
 | CI | GitHub Actions（analyze + test + build APK） | 见第 14 章 |
@@ -192,6 +193,22 @@ test/
 >    - **TD-06 运行时乱序初始化未触发**：测试 fixture 与词库包预置 `shuffled`，
 >      Onboarding 不生成运行时乱序；`seed = hash(wordbook_id, 设备安装时间)`
 >      的运行时初始化实现留待内容管线交付后按 §8.3 落地，表结构不变。
+
+> 结构补充说明（2026-08-13 单元 4 设置页落地时新增）：
+> 8. **路由与装配增补**：`lib/app/router.dart` 增补 `/settings`（设置页）与
+>    `/about`（关于/数据来源，合规署名，§10.3）两路由，今日任务页 AppBar
+>    提供设置入口；`App` 根组件经 `appSettingsProvider`
+>    （`FutureProvider<AppSettings>`，`lib/app/providers.dart`）驱动
+>    `MaterialApp.locale`（`settings.language`）与 `themeMode`
+>    （`settings.themeMode`），设置页保存后 `invalidate` 该 provider 即时生效。
+> 9. **设置页（M1 范围，PRD F7）**：覆盖每日目标（10/20/30/50）、复习软上限
+>    （100/200/300/关闭，默认 300）、发音开关、蜂窝下载离线包、提醒开关与
+>    提醒时间、界面语言（简体中文/English）、深色模式（跟随系统/浅色/深色）、
+>    数据导出（CSV/JSON，§8.2）与「关于/数据来源」入口；全部经
+>    `SettingsRepository.save` 全量写入（§8.1 通用键值表，无 schema 变更），
+>    提醒时间/开关变更同步 `ReminderScheduler` 重排（§11.1）。语言默认
+>    「跟随系统」（空串），选择后存 'zh'/'en'，`MaterialApp.locale` 仅在
+>    非空时覆盖。
 
 ---
 
@@ -672,6 +689,23 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 > - **导入方式**：读取发布版 DB（sqlite3 只读）后经 Drift 批量事务写入
 >   wordbooks/words/wordbook_items，整体替换与用户行 remap 在同一事务内
 >   完成，崩溃回滚不产生半升级状态。
+> 导出实现口径（2026-08-13 单元 4 落地时明确）：
+> - **入口**：设置页「数据导出」提供 CSV / JSON 两种格式，触发后生成临时文件
+>   并经 share_plus（Android `ACTION_SEND`）调起系统分享面板；文件写入
+>   `<应用私有目录>/exports/`，分享完成后不自动删除（用户可再取），
+>   不涉及任何上传（T-08 本地优先）。
+> - **内容**：`review_logs` 全量（id/user_id/wordbook_id/word_id/rating/
+>   reviewed_at/interval_days/stability/difficulty/session_id/session_type）+
+>   `user_words` 全量（user_id/wordbook_id/word_id/state/status/due_date/
+>   stability/difficulty/reps/lapses/last_review_at/last_rating/elapsed_days/
+>   scheduled_days）；仓储契约补 `UserWordRepository.getAll`（无 schema 变更）。
+> - **格式**：CSV 首行表头、字段转义（引号/逗号/换行），编码 UTF-8 带 BOM
+>   （Excel 直接打开中文不乱码），时间戳 ISO 8601；JSON 为
+>   `{version, exported_at, review_logs, user_words}` 结构，时间戳 epoch 毫秒
+>   （与库内一致，便于迁移回导）。
+> - **纯逻辑可测**：CSV/JSON 序列化器为纯 Dart（`lib/domain/services/
+>   data_export_formatter.dart`），文件写盘与分享由薄壳 `DataExporter`
+>   承担，测试覆盖序列化与写盘、分享调用注入桩。
 
 ### 8.3 新词学习顺序（乱序的确定性）
 
@@ -851,9 +885,24 @@ flowchart LR
 
 ### 11.1 每日提醒
 
-- 默认开启、可关闭（F6）；提醒时间存 `settings.reminder_time`，默认如 20:00。
-- 实现：`flutter_local_notifications` 精确时间本地通知；跨时区用 timezone 包处理。
-- Android 13+ 运行时申请 `POST_NOTIFICATIONS`；用户在系统层关闭时 App 内给出引导而非反复弹窗。
+- 默认开启、可关闭（F6）；提醒时间存 `settings.reminder_time`（默认 20:00），
+  时区沿用 `settings.timezone`（默认 Asia/Shanghai，§18）。
+- **实现（2026-08-13 落地，`lib/data/sources/reminder_scheduler.dart`）**：
+  `flutter_local_notifications` 初始化（channel `daily_reminder`，图标沿用
+  `@mipmap/ic_launcher`）+ `timezone`（`initializeTimeZones` +
+  `setLocalLocation(settings.timezone)`）；
+  每日循环用 `zonedSchedule(id: 1000, matchDateTimeComponents: time)`，
+  首次触发时刻由纯函数 `ReminderScheduleCalculator` 计算（跨日边界/时区
+  可单测）；Android 用 `AndroidScheduleMode.inexactAllowWhileIdle`，
+  不申请 `SCHEDULE_EXACT_ALARM`（提醒无需精确到秒，降低厂商 ROM 拦截面）。
+- **权限与引导**：Android 13+ 在设置页保存/开启提醒时经
+  `requestNotificationsPermission()` 运行时申请 `POST_NOTIFICATIONS`
+  （应用 manifest 声明 + WorkManager 插件合并声明）；用户拒绝后设置页
+  展示引导（`areNotificationsEnabled()` 检测 + `openAppNotificationSettings()`
+  跳系统设置），不反复弹窗。厂商 ROM 的加白引导文案与下载页共用口径
+  （§16 风险表），提醒失败不阻塞核心学习闭环。
+- 提醒调度为纯本地通知，无网络依赖；时区变化（设置切换）时先 `cancel`
+  再按新时区重新 `zonedSchedule`，避免旧时区任务残留。
 
 ### 11.2 离线包下载
 
@@ -1004,3 +1053,6 @@ flowchart LR
 | 蜂窝下载离线包（audio_download_on_cellular） | false | F5，默认仅 Wi-Fi/非计费网络自动下载（§9.2） |
 | 离线包发布基址 | `https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/` | TD-11；换对象存储只改此常量（§9.2） |
 | 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
+| 界面语言（language） | ''（跟随系统） | 简体中文 / English 切换（PRD F7）；选择后存 `zh`/`en`，键名 `language` |
+| 深色模式（theme_mode） | system | system / light / dark（PRD F7），键名 `theme_mode` |
+| 提醒通知 ID / 频道 | 1000 / `daily_reminder` | flutter_local_notifications（§11.1） |

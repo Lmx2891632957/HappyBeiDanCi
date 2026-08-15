@@ -47,6 +47,8 @@ void main() {
     expect(settings.onboardingDone, isFalse);
     expect(settings.pronunciationEnabled, isTrue);
     expect(settings.audioDownloadOnCellular, isFalse);
+    expect(settings.language, '');
+    expect(settings.themeMode, 'system');
 
     // 回填已落库：全部键都存在。
     final rows = await db.select(db.settings).get();
@@ -91,6 +93,8 @@ void main() {
         wordbookVersion: '1.0',
         pronunciationEnabled: false,
         audioDownloadOnCellular: true,
+        language: 'en',
+        themeMode: 'dark',
       ),
     );
     final loaded = await repo.load();
@@ -103,6 +107,8 @@ void main() {
     expect(loaded.wordbookVersion, '1.0');
     expect(loaded.pronunciationEnabled, isFalse);
     expect(loaded.audioDownloadOnCellular, isTrue);
+    expect(loaded.language, 'en');
+    expect(loaded.themeMode, 'dark');
 
     // 存储层校验：reviewCap 关闭存 'off'、examDate 存 epoch 毫秒文本。
     final rows = await db.select(db.settings).get();

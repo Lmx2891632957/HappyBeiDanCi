@@ -11,6 +11,8 @@ class AppSettings {
     this.wordbookVersion,
     this.pronunciationEnabled = true,
     this.audioDownloadOnCellular = false,
+    this.language = '',
+    this.themeMode = 'system',
   });
 
   /// 每日新词目标（PRD F2，默认 20）。
@@ -44,4 +46,49 @@ class AppSettings {
   /// 蜂窝网络允许自动下载离线音频包（TECH_DOC §9.4，F5；默认关闭，
   /// 仅 Wi-Fi/非计费网络自动下载）。
   final bool audioDownloadOnCellular;
+
+  /// 界面语言（PRD F7）：空串 = 跟随系统；'zh' 简体中文 / 'en' English。
+  final String language;
+
+  /// 深色模式（PRD F7）：'system' 跟随系统 / 'light' / 'dark'。
+  final String themeMode;
+
+  /// 复制并局部更新（设置页逐项保存用）；可空字段用 [_unset] 哨兵区分
+  /// "保持原值"与"置空"。
+  AppSettings copyWith({
+    int? dailyNewWords,
+    Object? reviewCap = _unset,
+    bool? reminderEnabled,
+    String? reminderTime,
+    Object? examDate = _unset,
+    String? timezone,
+    bool? onboardingDone,
+    Object? wordbookVersion = _unset,
+    bool? pronunciationEnabled,
+    bool? audioDownloadOnCellular,
+    String? language,
+    String? themeMode,
+  }) {
+    return AppSettings(
+      dailyNewWords: dailyNewWords ?? this.dailyNewWords,
+      reviewCap: reviewCap == _unset ? this.reviewCap : reviewCap as int?,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderTime: reminderTime ?? this.reminderTime,
+      examDate: examDate == _unset ? this.examDate : examDate as DateTime?,
+      timezone: timezone ?? this.timezone,
+      onboardingDone: onboardingDone ?? this.onboardingDone,
+      wordbookVersion: wordbookVersion == _unset
+          ? this.wordbookVersion
+          : wordbookVersion as String?,
+      pronunciationEnabled:
+          pronunciationEnabled ?? this.pronunciationEnabled,
+      audioDownloadOnCellular:
+          audioDownloadOnCellular ?? this.audioDownloadOnCellular,
+      language: language ?? this.language,
+      themeMode: themeMode ?? this.themeMode,
+    );
+  }
 }
+
+/// copyWith 的可空字段哨兵（"未传入" ≠ "置空"）。
+const Object _unset = Object();
