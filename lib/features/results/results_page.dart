@@ -172,7 +172,10 @@ class _ResultsPageState extends ConsumerState<ResultsPage> {
         ] else ...[
           Text(
             l10n.resultsRemainingNew(
-              math.max(0, plan.newWordCount - stats.newCount),
+              DailyCheckinCalculator.remainingNewWordsToday(
+                plan: plan,
+                stats: stats,
+              ),
             ),
             textAlign: TextAlign.center,
             style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
