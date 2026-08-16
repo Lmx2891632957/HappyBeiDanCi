@@ -1,7 +1,10 @@
 # 背单词软件技术文档（TECH_DOC v1.0）
 
 > 关联文档：[PRD.md](./PRD.md)（v0.3 定稿，决策已确认）
-> 状态：v1.3；技术决策已全部确认（2026-08-12），可进入开发
+> 状态：v1.4；技术决策已全部确认（2026-08-12），可进入开发
+> v1.4 变更：内容全内置（TD-14）落地——M1 词库 DB 与发音包预装进 APK assets，
+> App 端 asset 导入与 AssetSource 直读播放，下载基础设施保留、内置词书不触发
+> （见 §8.2/§9.1/§9.2/§9.3/§12/§14.3/§16/§17/§18）
 > v1.3 变更：TD-06 运行时乱序初始化落地（确定性种子持久化 + 词库升级同种子
 > 重排，见 §4/§5.1/§8.3）
 > v1.2 变更：M1 Onboarding 最小版落地（首启判定、路由、词书选择口径与熟词跳过取舍，见 §4/§5.1）
@@ -766,20 +769,29 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 >   完成，崩溃回滚不产生半升级状态。
 
 > 首装与升级流程（2026-08-13 单元 6 落地首装；2026-08-15 v1.1 起支持升级，
+> 2026-08-16 内容全内置 TD-14 起内置 asset 导入，
 > `lib/data/sources/wordbook_installer.dart`）：
 > - **触发**：应用启动后台异步（`main()` 后 `unawaited`）与今日任务页
 >   「无词库」重试入口；并发触发经实例级 in-flight Future 串行化，避免双导入。
 > - **版本判定**：`WordbookInstaller.defaultLatestVersion`（当前 `1.1`，随发布
 >   手动维护，多词书/自动版本探测见 M2 增强）与 `settings.wordbook_version`
->   比较：相等 → 幂等跳过；未装或落后（如 v1.0 → v1.1）→ 走下载导入升级，
->   升级复用导入器备份/word_id 重映射（§8.2 导入口径），失败保留旧词库、
->   下次启动重试，不影响已装用户学习。
-> - **流程**：拉取发布基址 `manifest.json`（§9.2 同一产物基址）→ 下载
->   `artifacts.wordbook_db` 对应 DB 文件到 `<应用私有目录>/wordbooks/
->   <版本>.db` → SHA-256 校验（`Sha256Utils` 流式哈希，失败删除半包）→
->   `WordbookImporter.importFromFile`（校验/备份/整体替换/remap，§8.2 导入
->   口径，版本键由导入器写入）→ 成功后按新版本调度发音包下载（§9.2 触发）。
-> - **失败语义**：下载/校验/导入任一步失败不产生半装状态（导入同事务），
+>   比较：相等 → 幂等跳过；未装或落后（如 v1.0 → v1.1）→ 走**内置 asset
+>   导入**（TD-14，下条），内置内容缺失时回退下载导入升级；升级复用导入器
+>   备份/word_id 重映射（§8.2 导入口径），失败保留旧词库、下次启动重试，
+>   不影响已装用户学习。
+> - **内置 asset 导入（TD-14）**：M1 词库 DB 预装为
+>   `assets/wordbooks/wordbook-gaokao-3500-v<版本>.db`（pubspec 声明，CI/本地
+>   脚本注入，不入 git，§14.3）。流程：`rootBundle` 读 asset 字节 → 写临时
+>   文件到 `<应用私有目录>/wordbooks/<版本>.db` → 复用
+>   `WordbookImporter.importFromFile`（校验/备份/整体替换/remap/版本键口径与
+>   下载导入完全一致）→ 幂等（版本一致跳过）；asset 缺失（如 M2 可下载
+>   词书）→ 回退下载流程（保留）。
+> - **下载导入流程（保留，供 M2 可下载词书）**：拉取发布基址
+>   `manifest.json`（§9.2 同一产物基址）→ 下载 `artifacts.wordbook_db` 对应
+>   DB 文件到 `<应用私有目录>/wordbooks/<版本>.db` → SHA-256 校验
+>   （`Sha256Utils` 流式哈希，失败删除半包）→ `WordbookImporter.importFromFile`
+>   → 成功后按新版本调度发音包下载（§9.2 触发，内置词书跳过）。
+> - **失败语义**：导入（含 asset 分支）任一步失败不产生半装状态（导入同事务），
 >   应用显示「无词库」并允许重试；升级失败保留旧词库与版本键，不影响
 >   已装用户学习。
 
@@ -829,21 +841,26 @@ CREATE INDEX idx_session_items ON session_items(session_id, seq);
 
 ## 9. 音频与离线包设计
 
-### 9.1 播放策略（在线优先 + 离线包）
+### 9.1 播放策略（内置词书 AssetSource 直读；下载词书本地/在线兜底）
 
 ```
 播放请求 → 发音开关关闭？ → 是：不播（设置页可开启，F7）
+       → 否：词书为内置词书（level=gaokao，TD-14）？ → 是：AssetSource 直读
+            assets/audio/<key>.mp3（随 APK 打包，零拷贝、零额外存储）
        → 否：离线包 ready 且 audio/<key>.mp3 存在？ → 是：播本地文件
                             → 否：播 audio_url（HTTP 流），失败静默不阻塞学习
 ```
 
-- **M1 实现（2026-08-13 落地）**：`lib/data/sources/audio_playback_service.dart`
-  封装 just_audio（`AudioPlayer` 单例复用）；每次播放前即时解析播放源：
-  先查 `audio_packs.status=ready` 且包内文件存在 → `AudioSource.file` 本地播放；
-  否则用词条 `audio_url` 在线播放。`audio_url` 为空或网络失败时静默忽略，
-  不打断卡片翻面/评分节奏（T-02 核心闭环不依赖网络）。
-- 首次使用默认在线播放；离线包在后台下载完成后自动切换本地（F5），
-  切换由播放时的"离线包 ready"判断天然完成，无需显式事件。
+- **M1 实现（2026-08-13 落地；2026-08-16 内容全内置 TD-14 增补内置分支）**：
+  `lib/data/sources/audio_playback_service.dart` 封装 just_audio（`AudioPlayer`
+  单例复用）；每次播放前即时解析播放源：先按词书 level 判定内置词书 →
+  `AssetSource(assets/audio/<key>.mp3)` 直读（asset 与 APK 同生命周期，无需
+  存在性检查）；否则查 `audio_packs.status=ready` 且包内文件存在 →
+  `AudioSource.file` 本地播放；再否则用词条 `audio_url` 在线播放。本地文件/
+  在线 URL 分支保留，供 M2 可下载词书复用；`audio_url` 为空或网络失败时
+  静默忽略，不打断卡片翻面/评分节奏（T-02 核心闭环不依赖网络）。
+- 内置词书发音随 APK 预装，无"首次在线播放/下载完成后切换本地"过程；
+  离线包切换语义保留给 M2 可下载词书。
 - **预加载口径**：原"翻卡前预加载后续 2 张卡"为性能优化项，M1 最小版不实现
   （按需点击播放，首卡 < 2s 目标不受影响）；后续翻卡若出现可感知卡顿再补。
 - 例句发音（M2）复用同一播放服务与解析策略。
@@ -875,6 +892,11 @@ manifest 由内容管线打包脚本生成（§10.2 打包），App 端消费
 1. **触发**：应用启动（`main()` 后异步）与 Onboarding 完成后，
    若词库已安装且 `audio_packs.status != ready`，注册一次性 WorkManager 任务
    （唯一名 `audio-pack-<wordbookId>`，`ExistingWorkPolicy.keep`）。
+   **内置词书不触发（TD-14，2026-08-16）**：`AudioPackDownloadScheduler`
+   注册前按词书 level 判定内置词书（`builtInWordbookLevel=gaokao`）直接跳过
+   （返回 false 不注册）；WorkManager 任务执行体（`audio_pack_worker.dart`）
+   内同样守卫，兜底旧版本遗留/手动排队的任务。下载基础设施（状态机、断点
+   续传、前台服务）代码保留，供 M2 可下载词书复用。
 2. **约束**：默认 `NetworkType.unmetered`（Wi-Fi/非计费）；设置
    `audio_download_on_cellular=true` 时改用 `NetworkType.connected`（F5）。
    充电状态不强制（体积约 50–100 MB，用户通常愿意等待）。
@@ -914,6 +936,10 @@ stateDiagram-v2
 - 词库升级（§8.2）后旧包版本与 `settings.wordbook_version` 不一致：
   下载任务按新版本重新注册（`ExistingWorkPolicy.replace`），旧包目录
   在解压替换时整体清除；升级导入不触碰 audio_packs（下载侧按版本自愈）。
+- **内置词书不进入本状态机（TD-14）**：内置词书（level=gaokao）不触发下载、
+  不落 `audio_packs` 行，发音走 §9.1 内置 AssetSource 分支；旧版本遗留的
+  `audio_packs` 行（如 v1.0 时代已下载的包）对内置词书无影响（Asset 优先，
+  行数据不参与播放判定），可保留或由后续清理。
 
 ### 9.4 设置键
 
@@ -1062,6 +1088,9 @@ flowchart LR
 > （§8.2 首装与升级流程）；「启动到首卡」
 > 计时口径为**已装词库**场景（release 包冷启动 → 首张卡片），首装场景
 > 受网络与导入耗时影响不纳入该指标（PRD §8 T-03 面向日常使用）。
+> 内容全内置（TD-14，2026-08-16）后首装为**本地 asset 导入**（无网络，
+> §8.2 asset 分支），「启动到首卡」口径统一为已装词库场景，首装仅受本地
+> 导入耗时影响，不再依赖网络。
 
 ---
 
@@ -1117,25 +1146,32 @@ flowchart LR
 
 ### 14.3 CI 与发布
 
-- GitHub Actions（2026-08-13 单元 6 落地，`.github/workflows/`）：
+- GitHub Actions（2026-08-13 单元 6 落地，`.github/workflows/`；
+  2026-08-16 内容全内置 TD-14 增补内容注入）：
   - `ci.yml`：push / PR 触发，Ubuntu + Flutter stable（`subosito/flutter-action`
-    带缓存）：`flutter analyze` → `flutter test` → `flutter build apk --release`，
-    APK 经 `actions/upload-artifact` 供下载；集成测试（Android 模拟器）列入
-    M1 后续增强（当前以仓储/Widget 集成测试覆盖，§14.2 口径）。
+    带缓存）：`flutter analyze` → `flutter test` → **构建 APK 前从 GitHub
+    Release 拉取当前词库产物（`wordbook-gaokao-3500-v1.1`：词库 DB + 音频
+    zip，zip 解压为单文件）注入 `assets/wordbooks/` 与 `assets/audio/`
+    （manifest SHA-256 校验，与 App 端导入校验口径一致，§8.2/§9.2）** →
+    `flutter build apk --release`，APK 经 `actions/upload-artifact` 供下载；
+    集成测试（Android 模拟器）列入 M1 后续增强（当前以仓储/Widget 集成测试
+    覆盖，§14.2 口径）。
   - `publish-wordbook.yml`：`workflow_dispatch`（输入 `include_tts`，默认
     false）或标签 `wordbook-gaokao-3500-v*` 触发；在自托管/手动 runner 上
     执行内容管线（fetch → align → build → qa → package，TTS 可选因耗时长），
     产物 `output/<包名>-v<版本>/`（词库 DB + 音频 zip + manifest）经
     `softprops/action-gh-release` 发布到同名 tag 的 GitHub Release，带 SHA-256
     校验信息；产物版本独立编号（§10 打包），与代码 tag 不混用（AGENTS §5.3）。
+    发布产物同时作为 `ci.yml` 的内容注入源（TD-14）。
 - **M1 真机验收清单（手动，AGENTS §7 离线/续学验证要求）**：
-  1. 首次启动（有网）：词库自动安装 → Onboarding → 首卡；记录「点开 App 到
-     首张卡片」耗时（release 包，目标 < 2s，§12）。
+  1. 首次启动（飞行模式即可，内容全内置）：内置词库自动导入 → Onboarding →
+     首卡；记录「点开 App 到首张卡片」耗时（release 包，目标 < 2s，§12）。
   2. 飞行模式：冷启动直达今日页；学习 3 词 → 复习（若有到期词）→ 完成页打卡
-     全流程不依赖网络；发音在离线包未就绪时静默（无崩溃）。
+     全流程不依赖网络；发音点击即时播放（内置 asset，TD-14）。
   3. 中断续学：学习中切后台/杀进程 → 重开 → 「继续上次未完成的学习」恢复一致。
-  4. 发音：在线播放（Wi-Fi/蜂窝）、离线包下载进度与前台通知、断网后本地播放；
-     SHA-256 校验失败时自动重试不残留半包。
+  4. 发音（内容全内置）：飞行模式下逐词点击发音即时播放、无网络请求；
+     重装/升级幂等不重复导入；旧版残留下载包（如有）不影响 Asset 播放。
+     下载相关验收（进度通知/断点续传/校验重试）移至 M2 可下载词书场景。
   5. 通知：Android 13+ 首次开启提醒弹权限；拒绝后设置页出现系统设置引导；
      厂商 ROM（小米/华为等）按系统提示加白「自启动/后台活动」后提醒正常。
   6. 数据导出：设置页导出 CSV/JSON 经分享面板输出，文件可被 WPS/Excel 打开
@@ -1159,7 +1195,7 @@ flowchart LR
 |---|---|---|
 | FSRS Dart 移植数值不一致 | 复习间隔不可信 | 官方 golden 测试（1e-6 精度）；失败则回退 SM-2（接口已抽象） |
 | TTS 音频质量参差 | 发音体验差 | 每 1000 词抽检；质量不达标词条重生成 |
-| 离线包 50–100 MB 下载失败率高（GitHub Releases 国内偏慢） | 离线功能形同虚设 | 断点续传 + 前台服务 + 分片校验；在线兜底不阻塞学习；必要时切换国内 OSS |
+| 离线包下载失败率高（GitHub Releases 国内偏慢） | 离线功能形同虚设 | **已消除（TD-14，2026-08-16）**：M1 内容全内置，App 端零下载；下载基础设施保留待 M2 可下载词书，届时沿用断点续传 + 前台服务 + 分片校验 + 在线兜底，必要时切换国内 OSS |
 | ECDICT 释义/义项顺序不合高中场景 | 内容质量受损 | 义项按考纲语境人工校正 + 抽检 |
 | Android 后台下载/通知限制（厂商 ROM） | 提醒与下载失效 | 前台服务 + 引导用户加白名单；提醒仅是辅助，不依赖其完成核心闭环 |
 | 词库升级导致用户进度错位 | 学习数据损坏 | word_id 以"word 文本 + 版本"映射，升级前备份用户表 |
@@ -1181,11 +1217,12 @@ flowchart LR
 | TD-06 | 乱序实现 | 首启种子乱序并持久化（确定性；2026-08-15 已落地，见 §8.3） | 每日重新洗牌（不推荐，进度漂移） |
 | TD-07 | 会话续学 | 独立 sessions/session_items 快照表 | 仅内存恢复（不满足 T-05） |
 | TD-08 | 音频格式 | mp3，48–96 kbps，按词表序号命名 | opus（压缩率更高，但播放兼容性低） |
-| TD-09 | 词库分发 | 发布版 DB 文件 + 音频 zip + manifest | 内置全部内容（包体过大） |
+| TD-09 | 词库分发 | **内置进 APK assets（内容全内置，TD-14，2026-08-16 修订）**；发布版 DB/zip/manifest 仍作为 CI 构建注入源与 M2 下载源 | 运行时下载（首装依赖网络，国内失败率高，已否决） |
 | TD-10 | 数据导出 | CSV/JSON 经系统分享面板 | 仅云同步（MVP 无后端，不可行） |
-| TD-11 | 离线包托管 | GitHub Releases（免费） | 国内 OSS（下载更快，需账号与费用） |
+| TD-11 | 离线包托管 | GitHub Releases（免费）；内容全内置后仅作 CI 注入源与 M2 下载源，App 端不再直连 | 国内 OSS（下载更快，需账号与费用） |
 | TD-12 | 分发方式 | MVP 阶段 APK 直装，商店上架后置 | 直接上架（需软著/隐私政策，周期长） |
 | TD-13 | 应用名称/包名 | 我爱背单词 / com.woaibeidanci.app | 首次发布前可改 |
+| TD-14 | 内容全内置（2026-08-16 确认） | M1 词库 DB（约 2.8MB）与发音包（约 37MB / 3677 mp3）预装进 APK assets（`assets/wordbooks/` + `assets/audio/`，pubspec 声明，CI/本地脚本注入、不入 git）；App 端 asset 导入 + `AssetSource` 直读；运行时零下载、零网络依赖、零托管成本；内容更新靠发新 APK（无热更新）；APK 体积增至约 60MB（已接受）；下载基础设施保留、内置词书不触发 | 运行时下载（首装/发音依赖网络，已否决） |
 
 ---
 
@@ -1206,6 +1243,10 @@ flowchart LR
 | 发音开关（pronunciation_enabled） | true | F7，关闭后播放服务不发声（§9.4） |
 | 蜂窝下载离线包（audio_download_on_cellular） | false | F5，默认仅 Wi-Fi/非计费网络自动下载（§9.2） |
 | 词库当前发布版本（defaultLatestVersion） | 1.1 | 与内容管线发布号对齐；发布新词库时同步更新（§8.2） |
+| 内置词书级别（builtInWordbookLevel） | gaokao | 词书 level 判定内置词书（TD-14）：AssetSource 直读、跳过下载（§9.1/§9.2） |
+| 内置内容 asset 目录 | `assets/wordbooks/`、`assets/audio/` | 词库 DB 与发音 mp3 预装目录（TD-14，§14.3 注入，不入 git） |
+| 词库内置 asset 路径 | `assets/wordbooks/wordbook-gaokao-3500-v<版本>.db` | asset 导入分支读取（§8.2） |
+| 发音内置 asset 路径 | `assets/audio/<audio_key>.mp3` | 内置词书 AssetSource 直读（§9.1） |
 | 离线包发布基址 | `https://github.com/Lmx2891632957/HappyBeiDanCi/releases/download/<包名>-v<版本>/` | TD-11；换对象存储只改此常量（§9.2） |
 | 下载重试退避 | 指数，初始 5 分钟 | WorkManager `BackoffPolicy.exponential`（§11.2） |
 | 界面语言（language） | ''（跟随系统） | 简体中文 / English 切换（PRD F7）；选择后存 `zh`/`en`，键名 `language` |

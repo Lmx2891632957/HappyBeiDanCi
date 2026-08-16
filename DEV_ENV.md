@@ -61,30 +61,40 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 - 调试便利：`adb` 在 `$ANDROID_HOME/platform-tools/`；debug 构建可用
   `adb shell run-as com.woaibeidanci.app` 访问应用私有目录（词库包在
   `files/wordbooks/`，应用数据库在 `app_flutter/happy_bei_dan_ci.sqlite`）。
-- **词库预装状态**：该 AVD 内已装 `wordbook-gaokao-3500-v1.0`，离线即可预览
-  UI 与学习流程；只有清除应用数据/重装后首次启动才需要联网下载词书。
+- **内容全内置（2026-08-16，TD-14）**：词库与发音随 APK assets 预装
+  （`assets/wordbooks/`、`assets/audio/`，CI/本地脚本注入，不入 git）；
+  清除应用数据/重装后首次启动为**本地 asset 导入**，飞行模式即可完整
+  使用，无需外网（模拟器可不再带 `-http-proxy`）。
 
 ## 5. 词库与发布状态
 
 - 仓库已公开；GitHub Release `wordbook-gaokao-3500-v1.1` 已发布（词库 DB
   2.8MB + 音频 zip 37MB + manifest，含 SHA-256；例句筛选规则更新见 TECH_DOC
   §10.2）；`wordbook-gaokao-3500-v1.0` 仍可访问。
+- **内容全内置（TD-14）**：该 Release 产物同时作为 CI 构建注入源
+  （`.github/workflows/ci.yml` 构建 APK 前拉取注入 `assets/`）与本地注入源；
+  本机构建前运行 `tools/scripts/inject_assets.sh`（优先复制本地
+  `tools/content_pipeline/output/wordbook-gaokao-3500-v1.1/` 产物，缺失时经
+  7888 代理 curl 断点续传下载 GitHub Release，并按 manifest SHA-256 校验）。
 - 内容管线：`tools/content_pipeline`（Python 解释器
   `/Users/Zhuanz/miniconda3/bin/python3`）；TTS 3677 词已完成；`raw/`、`work/`、
   `output/` 均不入库。
 - 已知限制：GitHub 不支持子目录资产名，词条内逐词在线兜底发音 URL
-  （`audio/<key>.mp3`）会 404；离线包 zip 不受影响。
+  （`audio/<key>.mp3`）会 404；内容全内置后内置词书不再触发在线兜底，
+  该限制对用户不可见，M2 可下载词书时再评估。
 
 ## 6. 已修复与遗留
 
 - 已修复：设置页分段控件横排（`f1fe694`）；词库首装数据库双实例锁库 →
   `main.dart` 单实例（`cadaf5a`）。
-- 遗留：`work/qa_checklist.md` 的 133 条信号词待人工抽检；在线兜底发音 URL
-  待切换对象存储或改资产命名（需与用户确认）。
+- 遗留：`work/qa_checklist.md` 的 133 条信号词待人工抽检；内容全内置后在线
+  兜底发音 URL 的 404 限制对内置词书不可见（M2 可下载词书时再评估）。
 
 ## 7. 收尾要求
 
-- `flutter analyze` 无新增问题、`flutter test` 全绿（基线 202 项）。
+- `flutter analyze` 无新增问题、`flutter test` 全绿（当前基线 233 项 + 1 跳过，
+  DEV_ENV 随测试数量增长维护）。
+- 构建含内置内容的 APK 前先运行 `tools/scripts/inject_assets.sh`（TD-14）。
 - Conventional Commits 小步提交（`fix`/`feat`/`docs` 等，一提交一事）。
 - 涉及架构/数据/算法改动必须同步 TECH_DOC.md；产品行为改动先与用户确认。
 - 完成后推送 main（走 §3 的代理命令）并汇报改动文件、关键决策与遗留项。

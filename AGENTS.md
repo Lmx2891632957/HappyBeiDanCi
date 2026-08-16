@@ -55,8 +55,12 @@ lib/
     stats/
     settings/
     about/
+assets/
+  wordbooks/              # 内置词库 DB（TD-14：CI/本地脚本注入，不入库，§5.3）
+  audio/                  # 内置发音 mp3（同上；AssetSource 直读，TECH_DOC §9.1）
 tools/
   content_pipeline/       # 词库构建、例句筛选、TTS、打包（离线工具链）
+  scripts/                # 本地开发脚本（如 inject_assets.sh 注入内置内容）
 test/
   domain/
   integration/
