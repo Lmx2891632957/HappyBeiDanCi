@@ -235,6 +235,10 @@ test/
    - **完成落库**：Onboarding「开始」以 `SettingsRepository.save` 一次事务写入
      每日目标与 `onboarding_done=true`（原子、幂等），随后 `context.go('/')`
      直达今日任务页；再次启动不再进入 Onboarding。
+   - **首启竞态兜底（2026-08-16 内容全内置验收发现）**：Onboarding 加载词书
+     列表时后台导入可能尚未落库（本地 asset 导入毫秒~秒级），空列表短暂
+     等待后重载（上限 20×500ms），避免展示「暂无词书」死路；导入失败仍由
+     今日页「无词库」重试入口兜底（§8.2 失败语义）。
    - **每日目标**：选项 10/20/30/50，默认 20（PRD F2 / §18），与
      `AppConstants.defaultDailyNewWords` 一致；词书选择默认选中第一个
      （多词书完整支持见 §4 补充说明 7）。
@@ -701,6 +705,10 @@ CREATE TABLE settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+> 读取口径：缺键在 `SettingsRepository.load` 时按默认值**幂等回填**（upsert，
+> 2026-08-16 起）：启动期 splash 门卫与 main() 后台任务会并发 load，回填必须
+> 可重入，避免后写者撞 `settings.key` 主键（首装验收发现并修复）。
 
 -- 每日统计（打卡/曲线）
 CREATE TABLE daily_stats (
