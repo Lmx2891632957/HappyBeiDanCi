@@ -32,6 +32,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   int _skippedCount = 0;
   bool _saving = false;
 
+  /// 首启词库导入（main() 后异步，TD-14 内容全内置后为本地 asset 导入）
+  /// 完成前的空结果重试计数；导入通常 <2s，超限展示"暂无词书"避免死循环。
+  int _emptyRetries = 0;
+
+  /// 空词书等待重试上限与间隔：覆盖"启动即进入 Onboarding、后台导入未落库"
+  /// 的竞态（§5.1 首启流程；导入失败由今日页「无词库」重试入口兜底）。
+  static const int _maxEmptyRetries = 20;
+  static const Duration _emptyRetryDelay = Duration(milliseconds: 500);
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +54,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           .getWordbooks();
       if (!mounted) {
         return;
+      }
+      if (wordbooks.isEmpty && _emptyRetries < _maxEmptyRetries) {
+        // 导入事务可能尚未提交（同一 DB 连接，读查询会等事务结束或先返回空）：
+        // 短暂等待后重载，避免用户看到"暂无词书"死路。
+        _emptyRetries++;
+        await Future<void>.delayed(_emptyRetryDelay);
+        if (!mounted) {
+          return;
+        }
+        return _load();
       }
       setState(() {
         _wordbooks = wordbooks;
