@@ -1,13 +1,16 @@
 /// 词库首装服务集成测试（TECH_DOC §8.2 首装流程）：
 /// manifest 拉取 → DB 下载 → SHA-256 校验 → 导入落版本键；幂等、校验失败
-/// 清理半包、坏 manifest 拒绝。
+/// 清理半包、坏 manifest 拒绝；内置 asset 导入分支（TD-14）与下载回退。
 library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart' show FlutterError;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:happy_bei_dan_ci/core/constants.dart';
 import 'package:happy_bei_dan_ci/data/local/app_database.dart';
 import 'package:happy_bei_dan_ci/data/repositories/drift_settings_repository.dart';
 import 'package:happy_bei_dan_ci/data/sources/wordbook_installer.dart';
@@ -141,6 +144,7 @@ void main() {
   WordbookInstaller installer(
     HttpServer server, {
     String latestVersion = '1.0',
+    Future<Uint8List> Function(String assetPath)? assetLoader,
   }) => WordbookInstaller(
     importer: WordbookImporter(
       db,
@@ -153,6 +157,25 @@ void main() {
       'http://${server.address.host}:${server.port}/',
     ),
     latestVersion: latestVersion,
+    assetLoader: assetLoader,
+  );
+
+  /// 仅用内置 asset 导入的安装器：发布基址指向不可达地址，若回退下载被执行
+  /// 必然失败（证明 asset 分支优先、无网络依赖，TD-14）。
+  WordbookInstaller assetInstaller(
+    Future<Uint8List> Function(String assetPath) assetLoader, {
+    String latestVersion = '1.0',
+  }) => WordbookInstaller(
+    importer: WordbookImporter(
+      db,
+      backupWriter: _TempBackupWriter(backupDir),
+    ),
+    settingsRepository: DriftSettingsRepository(db),
+    httpClient: httpClient,
+    downloadDirectory: () async => downloadDir,
+    releaseBaseUri: () => Uri.parse('http://127.0.0.1:1/'),
+    latestVersion: latestVersion,
+    assetLoader: assetLoader,
   );
 
   test('首装：manifest → 下载校验 → 导入 → 版本键落库；再次调用幂等', () async {
@@ -255,6 +278,74 @@ void main() {
 
     // 已是最新：幂等 no-op。
     expect(await instV11.ensureInstalled(), isNull);
+  });
+
+  test('内置 asset 导入：字节输入写临时文件 → 导入落版本键；再次调用幂等（无网络）', () async {
+    final pack = writePackFile();
+    final inst = assetInstaller((assetPath) async {
+      expect(assetPath, AppConstants.builtInWordbookDbAsset('1.0'));
+      return pack.readAsBytes();
+    });
+
+    final version = await inst.ensureInstalled();
+    expect(version, '1.0');
+    final settings = await DriftSettingsRepository(db).load();
+    expect(settings.wordbookVersion, '1.0');
+    expect(await db.select(db.wordbooks).get(), hasLength(1));
+    expect(await db.select(db.words).get(), hasLength(1));
+    // 临时文件复用下载目录（命名与发布产物一致，§8.2 asset 分支）。
+    expect(downloadDir.listSync(), hasLength(1));
+    expect(
+      downloadDir
+          .listSync()
+          .single
+          .path
+          .endsWith(AppConstants.builtInWordbookDbFileName('1.0')),
+      isTrue,
+    );
+
+    // 已装：幂等 no-op（不重新读 asset/导入）。
+    expect(await inst.ensureInstalled(), isNull);
+  });
+
+  test('内置 asset 缺失（未注入）→ 回退下载导入流程', () async {
+    final pack = writePackFile();
+    final (server, _) = await startServer(pack: pack);
+    addTearDown(server.close);
+    final inst = installer(
+      server,
+      assetLoader: (assetPath) async {
+        expect(assetPath, AppConstants.builtInWordbookDbAsset('1.0'));
+        throw const FlutterError('asset 不存在：未注入');
+      },
+    );
+
+    expect(await inst.ensureInstalled(), '1.0');
+    expect(
+      (await DriftSettingsRepository(db).load()).wordbookVersion,
+      '1.0',
+    );
+    expect(await db.select(db.words).get(), hasLength(1));
+  });
+
+  test('内置 asset 内容损坏（非 sqlite）→ 抛导入异常、无半装、版本键未写', () async {
+    final inst = assetInstaller(
+      (assetPath) async => Uint8List.fromList([1, 2, 3]),
+    );
+
+    await expectLater(
+      inst.ensureInstalled(),
+      throwsA(
+        isA<WordbookInstallException>().having(
+          (e) => e.failure,
+          'failure',
+          WordbookInstallFailure.import,
+        ),
+      ),
+    );
+    expect((await DriftSettingsRepository(db).load()).wordbookVersion, isNull);
+    expect(await db.select(db.wordbooks).get(), isEmpty);
+    expect(await db.select(db.words).get(), isEmpty);
   });
 }
 

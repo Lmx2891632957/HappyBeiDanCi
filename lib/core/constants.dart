@@ -68,6 +68,23 @@ abstract final class AppConstants {
       'https://github.com/$githubRepoOwner/$githubRepoName/releases/download/'
       '$packBase-v$version/';
 
+  /// 内置词书级别（TD-14 内容全内置，TECH_DOC §18）：词书 `level` 为 gaokao
+  /// 的 M1 高考词书为内置词书——发音走 AssetSource 直读（§9.1）、不触发离线
+  /// 包下载（§9.2）；M2 新课标词书届时再定内置或下载。
+  static const String builtInWordbookLevel = 'gaokao';
+
+  /// 内置词库 DB 的 asset 路径（TD-14）：CI/本地脚本按此注入
+  /// （`tools/scripts/inject_assets.sh`），asset 导入分支读取（§8.2）。
+  static String builtInWordbookDbAsset(String version) =>
+      'assets/wordbooks/$defaultWordbookPackBase-v$version.db';
+
+  /// 内置词库 DB 文件名（与发布产物文件名一致，asset 导入写临时文件用）。
+  static String builtInWordbookDbFileName(String version) =>
+      '$defaultWordbookPackBase-v$version.db';
+
+  /// 内置发音音频的 asset 路径（TD-14）：内置词书 AssetSource 直读（§9.1）。
+  static String builtInAudioAsset(String audioKey) => 'assets/audio/$audioKey.mp3';
+
   /// WorkManager 唯一任务名（TECH_DOC §11.2）。
   static String audioPackUniqueWorkName(int wordbookId) =>
       'audio-pack-$wordbookId';
