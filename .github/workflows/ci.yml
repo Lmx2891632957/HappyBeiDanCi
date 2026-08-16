@@ -20,6 +20,11 @@ jobs:
         run: flutter analyze
       - name: 全量测试（FSRS golden / 会话续学 / 数据库迁移）
         run: flutter test
+      - name: 注入内置内容（词库 DB + 发音音频，TD-14 内容全内置）
+        # 构建 APK 前从 GitHub Release（当前 wordbook-gaokao-3500-v1.1，与
+        # WordbookInstaller.defaultLatestVersion 对齐）拉取产物注入 assets/，
+        # manifest SHA-256 校验（脚本内完成，口径同 App 端 §8.2/§9.2）。
+        run: bash tools/scripts/inject_assets.sh 1.1
       - name: 构建 release APK
         run: flutter build apk --release
       - name: 上传 APK 产物
