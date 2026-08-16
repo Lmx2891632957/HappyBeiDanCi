@@ -161,6 +161,22 @@ void main() {
     );
   });
 
+  test('并发 load 缺键回填幂等：不抛 UNIQUE 冲突（启动期竞态回归）', () async {
+    // 启动期 splash 门卫与 main() 后台任务会并发 load，两个事务可能读到
+    // 同一批缺失键；回填必须为 upsert 语义（2026-08-16 首装验收发现，
+    // 见 DriftSettingsRepository.load 注释）。
+    final (db, repo) = openRepo('concurrent_backfill');
+    final results = await Future.wait([
+      repo.load(),
+      repo.load(),
+      repo.load(),
+    ]);
+    expect(results, hasLength(3));
+    expect(results.first.dailyNewWords, AppConstants.defaultDailyNewWords);
+    final rows = await db.select(db.settings).get();
+    expect({for (final r in rows) r.key}, AppSettingKeys.all.toSet());
+  });
+
   group('损坏值口径：抛 StateError，不静默', () {
     Future<void> seedRaw(AppDatabase db, String key, String value) {
       return db

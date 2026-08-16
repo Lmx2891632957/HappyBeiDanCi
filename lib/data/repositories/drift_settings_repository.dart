@@ -76,17 +76,23 @@ class DriftSettingsRepository implements SettingsRepository {
 
     // 缺失键回填默认值：settings 为通用键值表，缺键按默认值补齐，
     // 避免后续 get/set 单键读到时再次缺失（口径：load 对缺失键回填）。
+    // 用 upsert 而非 insertAll：启动期多个调用方（splash 门卫、main() 后台
+    // 词库安装/下载调度）会并发 load，两个事务都可能读到同一批"缺失键"，
+    // 后写者 insertAll 会撞 UNIQUE 主键——回填语义应为幂等补齐。
     final encoded = _toMap(settings);
     final missing = {
       for (final key in AppSettingKeys.all)
         if (!values.containsKey(key)) key: encoded[key]!,
     };
     if (missing.isNotEmpty) {
-      await _db.batch((batch) {
-        batch.insertAll(_db.settings, [
-          for (final entry in missing.entries)
-            SettingsCompanion.insert(key: entry.key, value: entry.value),
-        ]);
+      await _db.transaction(() async {
+        for (final entry in missing.entries) {
+          await _db
+              .into(_db.settings)
+              .insertOnConflictUpdate(
+                SettingsCompanion.insert(key: entry.key, value: entry.value),
+              );
+        }
       });
     }
     return settings;
