@@ -1153,9 +1153,11 @@ flowchart LR
     Release 拉取当前词库产物（`wordbook-gaokao-3500-v1.1`：词库 DB + 音频
     zip，zip 解压为单文件）注入 `assets/wordbooks/` 与 `assets/audio/`
     （manifest SHA-256 校验，与 App 端导入校验口径一致，§8.2/§9.2）** →
-    `flutter build apk --release`，APK 经 `actions/upload-artifact` 供下载；
-    集成测试（Android 模拟器）列入 M1 后续增强（当前以仓储/Widget 集成测试
-    覆盖，§14.2 口径）。
+    `flutter build apk --release --split-per-abi`（内容全内置后通用包约 103MB
+    ——4 个 ABI 原生库 + 40MB 内容；按 ABI 拆分后单包 58–62MB，贴合 PRD §11
+    决策 #15「约 60MB」已确认口径；产物 arm64-v8a / armeabi-v7a / x86_64
+    三个 APK），APK 经 `actions/upload-artifact` 供下载；集成测试（Android
+    模拟器）列入 M1 后续增强（当前以仓储/Widget 集成测试覆盖，§14.2 口径）。
   - `publish-wordbook.yml`：`workflow_dispatch`（输入 `include_tts`，默认
     false）或标签 `wordbook-gaokao-3500-v*` 触发；在自托管/手动 runner 上
     执行内容管线（fetch → align → build → qa → package，TTS 可选因耗时长），

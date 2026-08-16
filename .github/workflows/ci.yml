@@ -25,11 +25,13 @@ jobs:
         # WordbookInstaller.defaultLatestVersion 对齐）拉取产物注入 assets/，
         # manifest SHA-256 校验（脚本内完成，口径同 App 端 §8.2/§9.2）。
         run: bash tools/scripts/inject_assets.sh 1.1
-      - name: 构建 release APK
-        run: flutter build apk --release
+      - name: 构建 release APK（按 ABI 拆分，单包约 60MB，TD-14）
+        # 内容全内置后通用包约 103MB（4 个 ABI 原生库 + 40MB 内容）；
+        # 按 ABI 拆分后单包 58–62MB，贴合"约 60MB"已确认口径（TECH_DOC §14.3）。
+        run: flutter build apk --release --split-per-abi
       - name: 上传 APK 产物
         uses: actions/upload-artifact@v4
         with:
           name: apk-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
