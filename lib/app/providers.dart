@@ -82,10 +82,12 @@ final audioPackDownloadSchedulerProvider = Provider<AudioPackDownloadScheduler>(
 
 /// 发音播放服务（PRD F5 / TECH_DOC §9.1）：单例复用 AudioPlayer，
 /// 跨会话/页面保持播放状态（autoDispose 会在无监听时释放播放器，故不用）。
+/// 注入词书仓储用于内置词书判定（TD-14，§9.1 内置 AssetSource 分支）。
 final audioPlaybackServiceProvider = Provider<AudioPlaybackService>(
   (ref) => AudioPlaybackService(
     settingsRepository: ref.watch(settingsRepositoryProvider),
     audioPackRepository: ref.watch(audioPackRepositoryProvider),
+    wordbookRepository: ref.watch(wordbookRepositoryProvider),
   ),
 );
 
