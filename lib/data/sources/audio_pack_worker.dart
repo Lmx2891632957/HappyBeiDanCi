@@ -5,6 +5,7 @@ import '../../core/logger.dart';
 import '../../domain/models/audio_pack.dart';
 import '../local/app_database.dart';
 import '../repositories/drift_audio_pack_repository.dart';
+import '../repositories/drift_wordbook_repository.dart';
 import 'audio_pack_downloader.dart';
 import 'audio_pack_paths.dart';
 
@@ -46,6 +47,12 @@ Future<bool> _runAudioPackTask(
   final db = AppDatabase();
   try {
     final packs = DriftAudioPackRepository(db);
+    // TD-14 内容全内置：内置词书（level=gaokao）发音随 APK 打包，不下载。
+    // 兜底旧版本遗留/手动排队的任务（调度侧已按词书跳过，§9.2 触发）。
+    final book = await DriftWordbookRepository(db).getWordbookById(wordbookId);
+    if (AppConstants.isBuiltInWordbookLevel(book?.level)) {
+      return true;
+    }
     final pack = await packs.get(wordbookId);
     if (pack?.status == AudioPackStatus.ready && pack!.version == version) {
       return true; // 已就绪：幂等成功。

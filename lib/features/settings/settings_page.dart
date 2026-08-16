@@ -11,8 +11,9 @@ import '../../domain/services/data_export_formatter.dart';
 
 /// 设置页（PRD F7 / TECH_DOC §4 补充说明 9，M1 范围）。
 ///
-/// 覆盖：每日目标、复习软上限、发音开关、蜂窝下载、每日提醒（开关+时间）、
-/// 界面语言、深色模式、数据导出（CSV/JSON）与「关于/数据来源」入口。
+/// 覆盖：每日目标、复习软上限、发音开关、蜂窝下载（仅存在非内置词书时展示，
+/// TD-14）、每日提醒（开关+时间）、界面语言、深色模式、数据导出（CSV/JSON）
+/// 与「关于/数据来源」入口。
 /// 所有变更经 `SettingsRepository.save` 全量写入（§8.1）并
 /// `invalidate(appSettingsProvider)` 即时生效；提醒变更同步
 /// `ReminderScheduler` 重排（§11.1），Android 13+ 权限被拒时给出系统设置引导。
@@ -25,6 +26,10 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   AppSettings? _settings;
+
+  /// 是否存在可下载（非内置）词书：仅此时才展示"蜂窝下载发音包"开关
+  /// （TD-14 内容全内置：内置词书不触发下载，避免无关 UI 造成困惑，F5）。
+  bool _showCellularDownload = false;
   bool _reminderPermissionDenied = false;
 
   @override
@@ -35,10 +40,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _load() async {
     final settings = await ref.read(settingsRepositoryProvider).load();
+    // 下载开关只在存在非内置词书时展示（§9.2 内置词书不触发）。
+    final wordbooks = await ref.read(wordbookRepositoryProvider).getWordbooks();
     if (!mounted) {
       return;
     }
-    setState(() => _settings = settings);
+    setState(() {
+      _settings = settings;
+      _showCellularDownload = wordbooks.any(
+        (b) => !AppConstants.isBuiltInWordbookLevel(b.level),
+      );
+    });
   }
 
   Future<void> _save(AppSettings next) async {
@@ -174,14 +186,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     settings.copyWith(pronunciationEnabled: value),
                   ),
                 ),
-                SwitchListTile(
-                  title: Text(l10n.settingsCellularDownload),
-                  subtitle: Text(l10n.settingsCellularDownloadHint),
-                  value: settings.audioDownloadOnCellular,
-                  onChanged: (value) => _save(
-                    settings.copyWith(audioDownloadOnCellular: value),
+                // TD-14：内置词书发音随 APK 预装、无下载，隐藏蜂窝下载开关
+                // 减少困惑（存在非内置词书时恢复展示，M2 可下载词书）。
+                if (_showCellularDownload)
+                  SwitchListTile(
+                    title: Text(l10n.settingsCellularDownload),
+                    subtitle: Text(l10n.settingsCellularDownloadHint),
+                    value: settings.audioDownloadOnCellular,
+                    onChanged: (value) => _save(
+                      settings.copyWith(audioDownloadOnCellular: value),
+                    ),
                   ),
-                ),
                 const Divider(),
                 _SectionLabel(l10n.settingsReminderSection),
                 SwitchListTile(

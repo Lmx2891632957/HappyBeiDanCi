@@ -72,11 +72,13 @@ final audioPackDownloaderProvider = Provider<AudioPackDownloader>(
   (ref) => AudioPackDownloader(packRootProvider: AudioPackPaths.packRoot),
 );
 
-/// 离线音频包下载任务调度（TECH_DOC §11.2）：注册/取消 WorkManager 任务。
+/// 离线音频包下载任务调度（TECH_DOC §11.2）：注册/取消 WorkManager 任务；
+/// 注入词书仓储用于内置词书跳过判定（TD-14，§9.2 触发）。
 final audioPackDownloadSchedulerProvider = Provider<AudioPackDownloadScheduler>(
   (ref) => AudioPackDownloadScheduler(
     settingsRepository: ref.watch(settingsRepositoryProvider),
     audioPackRepository: ref.watch(audioPackRepositoryProvider),
+    wordbookRepository: ref.watch(wordbookRepositoryProvider),
   ),
 );
 

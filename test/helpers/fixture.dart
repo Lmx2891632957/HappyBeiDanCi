@@ -22,6 +22,7 @@ Future<List<int>> seedWordbook(
   AppDatabase db, {
   int wordCount = 3,
   int bookId = 1,
+  String level = 'gaokao',
 }) async {
   await db
       .into(db.wordbooks)
@@ -29,7 +30,7 @@ Future<List<int>> seedWordbook(
         WordbooksCompanion.insert(
           id: Value(bookId),
           name: '高考大纲词汇 3500',
-          level: 'gaokao',
+          level: level,
           totalCount: wordCount,
           source: 'test-fixture',
           createdAt: 1,

@@ -19,5 +19,21 @@ void main() {
       expect(AppConstants.defaultReminderTime, '20:00');
       expect(AppConstants.defaultTimezone, 'Asia/Shanghai');
     });
+
+    test('内置内容（TD-14）：词书级别判定与 asset 路径', () {
+      expect(AppConstants.builtInWordbookLevel, 'gaokao');
+      expect(AppConstants.isBuiltInWordbookLevel('gaokao'), isTrue);
+      expect(AppConstants.isBuiltInWordbookLevel('xkb'), isFalse);
+      expect(AppConstants.isBuiltInWordbookLevel(null), isFalse);
+      expect(
+        AppConstants.builtInWordbookDbAsset('1.1'),
+        'assets/wordbooks/wordbook-gaokao-3500-v1.1.db',
+      );
+      expect(
+        AppConstants.builtInWordbookDbFileName('1.1'),
+        'wordbook-gaokao-3500-v1.1.db',
+      );
+      expect(AppConstants.builtInAudioAsset('000001'), 'assets/audio/000001.mp3');
+    });
   });
 }

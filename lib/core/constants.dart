@@ -73,6 +73,11 @@ abstract final class AppConstants {
   /// 包下载（§9.2）；M2 新课标词书届时再定内置或下载。
   static const String builtInWordbookLevel = 'gaokao';
 
+  /// 内置词书判定（TD-14）：level 为内置级别时发音随 APK 预装、不触发离线包
+  /// 下载。调度器/后台任务/设置页共用，避免判定散落。
+  static bool isBuiltInWordbookLevel(String? level) =>
+      level == builtInWordbookLevel;
+
   /// 内置词库 DB 的 asset 路径（TD-14）：CI/本地脚本按此注入
   /// （`tools/scripts/inject_assets.sh`），asset 导入分支读取（§8.2）。
   static String builtInWordbookDbAsset(String version) =>

@@ -4,6 +4,7 @@ library;
 
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -217,6 +218,31 @@ void main() {
     final darkModeSize = tester.getSize(darkMode);
     expect(darkModeSize.width, greaterThan(200), reason: '深色模式选项应横排占满行宽');
     expect(darkModeSize.height, lessThan(80), reason: '深色模式选项不应竖排堆叠');
+  });
+
+  testWidgets('内置词书（gaokao）隐藏蜂窝下载开关；存在非内置词书时展示（TD-14）', (
+    tester,
+  ) async {
+    // 默认 seedWordbook 为 gaokao（内置）：开关隐藏。
+    await openSettings(tester);
+    await scrollTo(tester, find.text('Pronunciation'));
+    expect(find.text('Download audio on mobile data'), findsNothing);
+
+    // 追加一本非内置词书（模拟 M2 可下载词书场景）：开关恢复展示。
+    await db.into(db.wordbooks).insert(
+      WordbooksCompanion.insert(
+        id: const Value(2),
+        name: '新课标词汇',
+        level: 'xkb',
+        totalCount: 0,
+        source: 'test-fixture',
+        createdAt: 1,
+      ),
+    );
+    await tester.pumpWidget(Container()); // 销毁当前页面，重新进入设置页。
+    await openSettings(tester);
+    await scrollTo(tester, find.text('Pronunciation'));
+    expect(find.text('Download audio on mobile data'), findsOneWidget);
   });
 }
 

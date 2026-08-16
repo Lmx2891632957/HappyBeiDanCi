@@ -81,6 +81,7 @@ Future<void> _scheduleAudioPackIfNeeded(AppDatabase db) async {
     final scheduler = AudioPackDownloadScheduler(
       settingsRepository: DriftSettingsRepository(db),
       audioPackRepository: DriftAudioPackRepository(db),
+      wordbookRepository: DriftWordbookRepository(db),
     );
     // 前台服务通知文案按系统语言解析（TECH_DOC §11.2）。
     final l10n = lookupAppLocalizations(
