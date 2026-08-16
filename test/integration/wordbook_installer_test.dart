@@ -8,7 +8,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/services.dart' show FlutterError;
+import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:happy_bei_dan_ci/core/constants.dart';
 import 'package:happy_bei_dan_ci/data/local/app_database.dart';
@@ -316,7 +316,7 @@ void main() {
       server,
       assetLoader: (assetPath) async {
         expect(assetPath, AppConstants.builtInWordbookDbAsset('1.0'));
-        throw const FlutterError('asset 不存在：未注入');
+        throw FlutterError('asset 不存在：未注入');
       },
     );
 
