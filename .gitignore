@@ -41,3 +41,10 @@ tools/content_pipeline/work/
 *.sqlite
 *.zip
 *.mp3
+
+# 内置内容产物（TD-14：CI/本地脚本注入 assets/，不入 git；
+# 保留 .gitkeep 使目录在无注入时仍存在，pubspec 声明的 asset 目录可构建）
+assets/wordbooks/*
+!assets/wordbooks/.gitkeep
+assets/audio/*
+!assets/audio/.gitkeep

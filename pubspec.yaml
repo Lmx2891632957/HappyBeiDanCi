@@ -36,3 +36,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  # 内置内容（TD-14 内容全内置）：词库 DB 与发音 mp3 由 CI/本地脚本注入
+  # （tools/scripts/inject_assets.sh），产物不入 git（AGENTS §5.3）；
+  # 目录恒保留 .gitkeep，保证无注入时 analyze/test 可运行。
+  assets:
+    - assets/wordbooks/
+    - assets/audio/
