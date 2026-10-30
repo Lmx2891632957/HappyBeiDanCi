@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与品牌图标外圈的蓝色保持一致，供自适应图标裁切边缘使用。 -->
+    <color name="ic_launcher_background">#75C7F5</color>
+</resources>

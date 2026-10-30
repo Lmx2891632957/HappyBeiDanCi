@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景四周留出安全区，避免圆形或异形启动器裁掉蜜蜂和字母。 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_foreground"
+    android:inset="18dp" />
